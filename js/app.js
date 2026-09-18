@@ -6,6 +6,7 @@ import { normalizeCode } from './engine/match.js';
 import { programCard, esc, titleCase } from './ui/render.js';
 import { initCourseCards, setCourseCardSchool } from './ui/coursecard.js';
 import { initCourseAutocomplete, setAutocompleteSchool } from './ui/autocomplete.js';
+import { initSchedule, render as renderSchedule } from './ui/schedule.js';
 
 const $ = (sel) => document.querySelector(sel);
 const PAGE = 15;
@@ -16,8 +17,10 @@ const state = {
   includeInProgress: true,
   includePlanned: true,
   plan: [], // [{ term: 'Spring 2027', courses: [{ code, hours }] }]
+  schedule: {}, // { [termCode]: [crn, ...] }
+  scheduleTerm: '',
   editing: false,
-  tab: localStorage.getItem('rf.tab') || (location.hash === '#planner' ? 'planner' : 'audit'),
+  tab: localStorage.getItem('rf.tab') || (location.hash === '#planner' ? 'planner' : location.hash === '#schedule' ? 'schedule' : 'audit'),
   kind: 'all',
   query: '',
   sort: 'pct',
@@ -29,14 +32,14 @@ let school = getSchool(localStorage.getItem('rf.school') || schools[0].id);
 // ---------- persistence ----------
 function save() {
   try {
-    localStorage.setItem(`rf.${school.id}`, JSON.stringify({ courses: state.courses, declared: state.declared, includeInProgress: state.includeInProgress, includePlanned: state.includePlanned, plan: state.plan }));
+    localStorage.setItem(`rf.${school.id}`, JSON.stringify({ courses: state.courses, declared: state.declared, includeInProgress: state.includeInProgress, includePlanned: state.includePlanned, plan: state.plan, schedule: state.schedule, scheduleTerm: state.scheduleTerm }));
     localStorage.setItem('rf.school', school.id);
   } catch { /* storage unavailable */ }
 }
 function load() {
   try {
     const d = JSON.parse(localStorage.getItem(`rf.${school.id}`) || 'null');
-    if (d) { state.courses = d.courses || []; state.declared = d.declared || []; state.includeInProgress = d.includeInProgress !== false; state.includePlanned = d.includePlanned !== false; state.plan = Array.isArray(d.plan) ? d.plan : []; }
+    if (d) { state.courses = d.courses || []; state.declared = d.declared || []; state.includeInProgress = d.includeInProgress !== false; state.includePlanned = d.includePlanned !== false; state.plan = Array.isArray(d.plan) ? d.plan : []; state.schedule = d.schedule && typeof d.schedule === 'object' ? d.schedule : {}; state.scheduleTerm = d.scheduleTerm || ''; }
     state.expanded = new Set(state.declared);
   } catch { /* ignore */ }
 }
@@ -54,6 +57,7 @@ function initChrome() {
     school = getSchool(sel.value);
     setCourseCardSchool(school);
     setAutocompleteSchool(school);
+    scheduleCtx.school = school;
     state.courses = []; state.declared = []; state.plan = []; state.expanded.clear();
     load(); renderAll(); save();
   });
@@ -350,6 +354,8 @@ function renderSuggestions(declaredResults, courses) {
   $('#suggest-patterns').textContent = patterns.length ? `Also open: ${patterns.map((pt) => `${pt.count > 1 ? `${pt.count} × ` : ''}${pt.label} for ${pt.program}`).join('; ')}.` : '';
 }
 
+let lastPrepared = [], lastDeclaredResults = [];
+
 // ---------- results ----------
 function renderDeclareSelect() {
   const sel = $('#declare-select');
@@ -369,6 +375,7 @@ function renderResults() {
 
   const declaredPrograms = state.declared.map((id) => school.programs.find((p) => p.id === id)).filter(Boolean);
   const declaredResults = declaredPrograms.map((p) => auditProgram(p, courses));
+  lastPrepared = courses; lastDeclaredResults = declaredResults;
   $('#declared-audits').innerHTML = declaredResults.length
     ? declaredResults.map((r) => programCard(r, { expanded: state.expanded.has(r.program.id), declared: true, school, variant: 'card' })).join('')
     : `<div class="panel px-4 py-6 text-center text-sm text-zinc-500">No declared programs yet. Choose your major from the menu, or add one from the list below.</div>`;
@@ -427,7 +434,7 @@ function initResults() {
 }
 
 function resetAll() {
-  state.courses = []; state.declared = []; state.plan = []; state.expanded.clear(); state.editing = false;
+  state.courses = []; state.declared = []; state.plan = []; state.schedule = {}; state.expanded.clear(); state.editing = false;
   state.tab = 'audit'; state.page = 1; state.query = ''; $('#search').value = '';
   $('#paste-text').value = ''; $('#paste-box').hidden = true; setStatus('');
   try { localStorage.removeItem(`rf.${school.id}`); localStorage.removeItem('rf.tab'); } catch { /* ignore */ }
@@ -446,12 +453,13 @@ function initTabs() {
   document.querySelectorAll('[role="tab"]').forEach((b) => b.addEventListener('click', () => {
     state.tab = b.dataset.tab;
     try { localStorage.setItem('rf.tab', state.tab); } catch { /* ignore */ }
-    history.replaceState(null, '', state.tab === 'planner' ? '#planner' : location.pathname);
+    history.replaceState(null, '', state.tab === 'audit' ? location.pathname : `#${state.tab}`);
     renderTabs();
+    if (state.tab === 'schedule') renderSchedule();
   }));
 }
 
-function renderAll() { renderTimeline(); renderResults(); renderTabs(); }
+function renderAll() { renderTimeline(); renderResults(); renderTabs(); if (state.courses.length && state.tab === 'schedule') renderSchedule(); }
 
 // ---------- boot ----------
 initChrome();
@@ -460,6 +468,8 @@ initCourseAutocomplete(school);
 initImport();
 initTimeline();
 initTabs();
+const scheduleCtx = { state, school, $, save, rerender: () => { renderTimeline(); renderResults(); renderTabs(); }, getCourses: () => lastPrepared, getDeclaredResults: () => lastDeclaredResults };
+initSchedule(scheduleCtx);
 initResults();
 load();
 renderAll();

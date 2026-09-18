@@ -198,7 +198,7 @@ export function suggestCourses(results, courses, school, limit = 12) {
       for (const s of specs) {
         if (typeof s === 'string') { if (!blocked.has(s)) codes.add(s); }
         else if (s.courses) s.courses.forEach((c) => !blocked.has(c) && codes.add(c));
-        else patterns.push({ label: s.label || specLabelSafe(s), program });
+        else patterns.push({ label: s.label || specLabelSafe(s), program, spec: s });
       }
       return codes;
     };
@@ -226,6 +226,7 @@ export function suggestCourses(results, courses, school, limit = 12) {
   // collapse duplicate pattern entries
   const pmap = new Map();
   for (const pt of patterns) { const k = `${pt.label}|${pt.program}`; pmap.set(k, { ...pt, count: (pmap.get(k)?.count || 0) + 1 }); }
+  // Exclusion of courses already taken happens per-code in `have`; pattern matches are resolved by callers.
   return { suggestions, patterns: [...pmap.values()] };
 }
 

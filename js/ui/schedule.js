@@ -1,0 +1,236 @@
+// Semester schedule planner: pick sections for a term, see them on a weekly grid, and find courses that fit
+// the open slots and fill something useful (a declared-program requirement or a distribution group).
+
+import { esc, titleCase } from './render.js';
+import { termName } from './coursecard.js';
+import { suggestCourses } from '../engine/audit.js';
+import { courseMatchesSpec, aliasesFor } from '../engine/match.js';
+
+const sectionCache = new Map(); // term -> Promise<Section[]>
+const deptCache = new Map();    // dept -> Promise<object>
+const DAY_ORDER = ['M', 'T', 'W', 'R', 'F', 'S', 'U'];
+const DAY_NAME = { M: 'Mon', T: 'Tue', W: 'Wed', R: 'Thu', F: 'Fri', S: 'Sat', U: 'Sun' };
+const PALETTE = [
+  'bg-blue-100 text-blue-900 dark:bg-blue-900/60 dark:text-blue-100',
+  'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-100',
+  'bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-100',
+  'bg-violet-100 text-violet-900 dark:bg-violet-900/60 dark:text-violet-100',
+  'bg-rose-100 text-rose-900 dark:bg-rose-900/60 dark:text-rose-100',
+  'bg-cyan-100 text-cyan-900 dark:bg-cyan-900/60 dark:text-cyan-100',
+  'bg-lime-100 text-lime-900 dark:bg-lime-900/60 dark:text-lime-100',
+  'bg-orange-100 text-orange-900 dark:bg-orange-900/60 dark:text-orange-100',
+];
+
+let ctx; // { state, school, $, save, rerender, getCourses, getDeclaredResults }
+let ui = { query: '', fits: true, needed: false, hideTaken: true, dist: '' };
+
+export function initSchedule(context) {
+  ctx = context;
+  const root = ctx.$('[data-panel="schedule"]');
+  root.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.id === 'sched-term') { ctx.state.scheduleTerm = t.value; ctx.save(); render(); }
+    if (t.id === 'sched-fits') { ui.fits = t.checked; renderCandidates(); }
+    if (t.id === 'sched-needed') { ui.needed = t.checked; renderCandidates(); }
+    if (t.id === 'sched-hide-taken') { ui.hideTaken = t.checked; renderCandidates(); }
+    if (t.dataset.f === 'swap') { swapSection(Number(t.dataset.crn), Number(t.value)); }
+  });
+  root.addEventListener('input', (e) => { if (e.target.id === 'sched-search') { ui.query = e.target.value.trim().toLowerCase(); renderCandidates(); } });
+  root.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-f]'); if (!b) return;
+    if (b.dataset.f === 'add') addSection(Number(b.dataset.crn));
+    if (b.dataset.f === 'remove') removeSection(Number(b.dataset.crn));
+    if (b.dataset.f === 'dist') { ui.dist = ui.dist === b.dataset.g ? '' : b.dataset.g; renderCandidates(); }
+    if (b.dataset.f === 'clear') { setSelected([]); }
+  });
+}
+
+// ---------- data ----------
+function loadSections(term) {
+  if (!sectionCache.has(term)) {
+    sectionCache.set(term, fetch(`${ctx.school.sectionDataPath}${term}.json`).then((r) => (r.ok ? r.json() : { sections: [] }))
+      .then((d) => d.sections.map((x) => ({ crn: x[0], code: x[1], sec: x[2], title: x[3], instr: x[4], credits: Number(x[5]) || 0, dist: x[6], part: x[7], meetings: x[8].map((m) => ({ days: m[0], start: m[1], end: m[2] })) })))
+      .catch(() => []));
+  }
+  return sectionCache.get(term);
+}
+function loadDept(dept) {
+  if (!deptCache.has(dept)) deptCache.set(dept, fetch(`${ctx.school.courseDataPath}${dept}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+  return deptCache.get(dept);
+}
+
+// ---------- state helpers ----------
+function currentTerm() {
+  const terms = ctx.school.sectionTerms || [];
+  if (!terms.length) return null;
+  if (!ctx.state.scheduleTerm || !terms.includes(ctx.state.scheduleTerm)) ctx.state.scheduleTerm = terms[terms.length - 1];
+  return ctx.state.scheduleTerm;
+}
+function selectedCrns() { const t = currentTerm(); return (ctx.state.schedule && ctx.state.schedule[t]) || []; }
+async function setSelected(crns) {
+  const t = currentTerm();
+  ctx.state.schedule = ctx.state.schedule || {};
+  ctx.state.schedule[t] = crns;
+  await syncPlan(t);
+  ctx.save(); render();
+}
+function isTranscriptTerm(term) { const name = termName(term); return ctx.state.courses.some((c) => c.term === name); }
+/** Keep the planner term for a future semester in step with the sections chosen here. */
+async function syncPlan(term) {
+  if (isTranscriptTerm(term)) return;
+  const name = termName(term);
+  const sections = await loadSections(term);
+  const codes = [...new Set(selectedCrns().map((crn) => sections.find((s) => s.crn === crn)?.code).filter(Boolean))];
+  let t = ctx.state.plan.find((x) => x.term === name);
+  if (!t) { if (!codes.length) return; t = { term: name, courses: [] }; ctx.state.plan.push(t); }
+  const fromSchedule = new Set(t.courses.filter((c) => c.fromSchedule).map((c) => c.code));
+  t.courses = t.courses.filter((c) => !c.fromSchedule || codes.includes(c.code));
+  for (const code of codes) if (!t.courses.some((c) => c.code === code)) t.courses.push({ code, hours: ctx.school.catalog?.[code]?.hours, fromSchedule: true });
+  if (!t.courses.length) ctx.state.plan = ctx.state.plan.filter((x) => x !== t);
+  ctx.rerender();
+}
+async function addSection(crn) { if (!selectedCrns().includes(crn)) setSelected([...selectedCrns(), crn]); }
+async function removeSection(crn) { setSelected(selectedCrns().filter((c) => c !== crn)); }
+async function swapSection(oldCrn, newCrn) { setSelected(selectedCrns().map((c) => (c === oldCrn ? newCrn : c))); }
+
+// ---------- time helpers ----------
+const fmt = (m) => { const h = Math.floor(m / 60), mi = m % 60; const ap = h >= 12 ? 'p' : 'a'; return `${((h + 11) % 12) + 1}:${String(mi).padStart(2, '0')}${ap}`; };
+const meetingText = (s) => s.meetings.length ? s.meetings.map((m) => `${m.days} ${fmt(m.start)}–${fmt(m.end)}`).join(', ') : 'No set meeting time';
+function conflicts(a, b) {
+  for (const x of a.meetings) for (const y of b.meetings) {
+    if (x.start >= y.end || y.start >= x.end) continue;
+    for (const d of x.days) if (y.days.includes(d)) return true;
+  }
+  return false;
+}
+
+// ---------- rendering ----------
+export async function render() {
+  const $ = ctx.$;
+  const term = currentTerm();
+  const root = $('[data-panel="schedule"]');
+  if (!term) { root.innerHTML = '<p class="text-sm text-zinc-500">No schedule data for this school yet.</p>'; return; }
+  $('#sched-term').innerHTML = (ctx.school.sectionTerms || []).map((t) => `<option value="${t}" ${t === term ? 'selected' : ''}>${termName(t)}</option>`).join('');
+  const sections = await loadSections(term);
+  if (ctx.state.scheduleTerm !== term) return;
+  const byCrn = new Map(sections.map((s) => [s.crn, s]));
+
+  // First visit to a term that is in progress on the transcript: guess sections from the in-progress courses.
+  if (!ctx.state.schedule?.[term] && isTranscriptTerm(term)) {
+    const name = termName(term);
+    const guesses = ctx.state.courses.filter((c) => c.term === name && c.status !== 'failed')
+      .map((c) => sections.find((s) => s.code === c.code && s.meetings.length) || sections.find((s) => s.code === c.code)).filter(Boolean).map((s) => s.crn);
+    ctx.state.schedule = ctx.state.schedule || {}; ctx.state.schedule[term] = guesses; ctx.save();
+    $('#sched-note').textContent = guesses.length ? 'Sections were guessed from your in-progress courses. Switch any section from the list on the right.' : '';
+  }
+  const selected = selectedCrns().map((crn) => byCrn.get(crn)).filter(Boolean);
+  renderGrid(selected);
+  renderSelected(selected, sections);
+  await renderCandidates();
+}
+
+function renderGrid(selected) {
+  const $ = ctx.$;
+  const days = ['M', 'T', 'W', 'R', 'F'];
+  for (const s of selected) for (const m of s.meetings) for (const d of m.days) if (!days.includes(d)) days.push(d);
+  days.sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b));
+  let start = 8 * 60, end = 18 * 60;
+  for (const s of selected) for (const m of s.meetings) { start = Math.min(start, Math.floor(m.start / 60) * 60); end = Math.max(end, Math.ceil(m.end / 60) * 60); }
+  const scale = 0.85; // px per minute
+  const height = (end - start) * scale;
+  const colorOf = new Map(); [...new Set(selected.map((s) => s.code))].forEach((code, i) => colorOf.set(code, PALETTE[i % PALETTE.length]));
+  const clash = new Set();
+  for (let i = 0; i < selected.length; i++) for (let j = i + 1; j < selected.length; j++) if (conflicts(selected[i], selected[j])) { clash.add(selected[i].crn); clash.add(selected[j].crn); }
+  const hours = []; for (let h = start; h < end; h += 60) hours.push(h);
+  const gridCols = `grid-template-columns: 2.6rem repeat(${days.length}, minmax(0, 1fr));`;
+  const header = `<div class="grid text-[11px] font-medium text-zinc-500" style="${gridCols}"><div></div>${days.map((d) => `<div class="px-1 pb-1">${DAY_NAME[d]}</div>`).join('')}</div>`;
+  const cols = days.map((d) => {
+    const blocks = selected.flatMap((s) => s.meetings.filter((m) => m.days.includes(d)).map((m) => `<div class="absolute inset-x-0.5 overflow-hidden rounded px-1 py-0.5 text-[10px] leading-tight ${colorOf.get(s.code)} ${clash.has(s.crn) ? 'ring-2 ring-red-500' : ''}" style="top:${(m.start - start) * scale}px;height:${Math.max(14, (m.end - m.start) * scale - 2)}px" title="${esc(`${s.code} ${s.sec} · ${titleCase(s.title)} · ${fmt(m.start)}–${fmt(m.end)}`)}"><span class="course-ref font-mono font-medium" data-course="${esc(s.code)}">${esc(s.code)}</span><span class="block truncate opacity-80">${fmt(m.start)}–${fmt(m.end)}</span></div>`));
+    return `<div class="relative border-l border-zinc-200 dark:border-zinc-800" style="height:${height}px">${hours.map((h) => `<div class="absolute inset-x-0 border-t border-zinc-100 dark:border-zinc-800/70" style="top:${(h - start) * scale}px"></div>`).join('')}${blocks.join('')}</div>`;
+  }).join('');
+  const times = `<div class="relative" style="height:${height}px">${hours.map((h) => `<div class="absolute right-1 -translate-y-1/2 font-mono text-[10px] text-zinc-400" style="top:${(h - start) * scale}px">${fmt(h).replace(':00', '')}</div>`).join('')}</div>`;
+  $('#sched-grid').innerHTML = header + `<div class="grid" style="${gridCols}">${times}${cols}</div>`;
+  $('#sched-clash').textContent = clash.size ? `${clash.size} sections overlap` : '';
+}
+
+function renderSelected(selected, sections) {
+  const $ = ctx.$;
+  const credits = selected.reduce((a, s) => a + s.credits, 0);
+  $('#sched-stats').textContent = selected.length ? `${selected.length} section${selected.length === 1 ? '' : 's'} · ${credits} credit hours` : 'Nothing scheduled yet';
+  $('#sched-selected').innerHTML = selected.map((s) => {
+    const alts = sections.filter((x) => x.code === s.code && x.meetings.length);
+    const swap = alts.length > 1 ? `<select data-f="swap" data-crn="${s.crn}" class="field h-6 px-1 text-[11px]" aria-label="Section">${alts.map((x) => `<option value="${x.crn}" ${x.crn === s.crn ? 'selected' : ''}>${esc(x.sec)} · ${esc(meetingText(x))}</option>`).join('')}</select>` : `<span class="font-mono text-[11px] text-zinc-500">${esc(s.sec)} · ${esc(meetingText(s))}</span>`;
+    return `<div class="flex items-center gap-2 py-1 text-xs">
+      <span class="course-ref shrink-0 cursor-help font-mono text-[12px] font-medium" data-course="${esc(s.code)}" tabindex="0">${esc(s.code)}</span>
+      <span class="min-w-0 flex-1 truncate text-zinc-500">${esc(titleCase(s.title))}</span>
+      ${swap}
+      <span class="shrink-0 font-mono text-[11px] text-zinc-500">${s.credits} hr</span>
+      <button type="button" class="btn-icon size-6 rounded" data-f="remove" data-crn="${s.crn}" aria-label="Remove ${esc(s.code)}"><svg class="size-3.5"><use href="#i-x"/></svg></button></div>`;
+  }).join('') || '<p class="py-2 text-xs text-zinc-500">Add sections from the list on the left, or search for a course.</p>';
+}
+
+/** Which distribution groups still need courses, from everything taken, in progress, or planned. */
+async function distributionNeeds() {
+  const cfg = ctx.school.distribution;
+  if (!cfg) return null;
+  const courses = ctx.getCourses();
+  const depts = [...new Set(courses.map((c) => c.code.split(' ')[0]))];
+  const data = Object.assign({}, ...(await Promise.all(depts.map(loadDept))));
+  const have = {}; for (const g of cfg.groups) have[g] = { count: 0, hours: 0, codes: [] };
+  for (const c of courses) {
+    const g = (data[c.code]?.dist || '').replace('Distribution Group ', '');
+    if (have[g]) { have[g].count++; have[g].hours += c.hours; have[g].codes.push(c.code); }
+  }
+  const need = {}; for (const g of cfg.groups) need[g] = Math.max(0, cfg.coursesPerGroup - have[g].count, Math.ceil(Math.max(0, cfg.hoursPerGroup - have[g].hours) / 3));
+  return { have, need, cfg };
+}
+
+async function renderCandidates() {
+  const $ = ctx.$;
+  const term = currentTerm();
+  const sections = await loadSections(term);
+  const selected = selectedCrns().map((crn) => sections.find((s) => s.crn === crn)).filter(Boolean);
+  const selectedCodes = new Set(selected.map((s) => s.code));
+  const courses = ctx.getCourses();
+  const takenCodes = new Set(courses.flatMap((c) => c.aliases || [c.code]));
+  const results = ctx.getDeclaredResults();
+  const { suggestions, patterns } = suggestCourses(results, courses, ctx.school, 500);
+  const reqByCode = new Map(suggestions.map((s) => [s.code, s.programs]));
+  const dist = await distributionNeeds();
+
+  // Distribution summary chips
+  $('#sched-dist').innerHTML = dist ? dist.cfg.groups.map((g) => {
+    const h = dist.have[g], n = dist.need[g];
+    return `<button type="button" data-f="dist" data-g="${g}" class="rounded-md border px-2 py-1 text-[11px] ${ui.dist === g ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900' : 'border-zinc-300 dark:border-zinc-700'}" title="${esc(h.codes.join(', ') || 'none yet')}">D${g === 'I' ? 1 : g === 'II' ? 2 : 3} <span class="${n ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'} ${ui.dist === g ? '!text-inherit' : ''}">${n ? `${h.count}/${dist.cfg.coursesPerGroup}` : '✓'}</span></button>`;
+  }).join('') : '';
+
+  const why = (s) => {
+    const tags = [];
+    const aliases = aliasesFor(s.code, ctx.school.crosslist);
+    const progs = new Set();
+    for (const a of aliases) for (const p of reqByCode.get(a) || []) progs.add(p);
+    for (const pt of patterns) if (aliases.some((a) => courseMatchesSpec({ aliases: [a] }, pt.spec)) && !aliases.some((a) => takenCodes.has(a))) progs.add(pt.program);
+    for (const p of progs) tags.push({ kind: 'req', text: p.replace(/\s*\(.*\)$/, '') });
+    if (dist && s.dist && dist.need[s.dist] > 0) tags.push({ kind: 'dist', text: `D${s.dist === 'I' ? 1 : s.dist === 'II' ? 2 : 3} needed` });
+    return tags;
+  };
+
+  let list = sections.filter((s) => s.meetings.length && !selectedCodes.has(s.code));
+  if (ui.hideTaken) list = list.filter((s) => !aliasesFor(s.code, ctx.school.crosslist).some((a) => takenCodes.has(a)));
+  if (ui.fits) list = list.filter((s) => !selected.some((x) => conflicts(s, x)));
+  if (ui.dist) list = list.filter((s) => s.dist === ui.dist);
+  if (ui.query) { const q = ui.query.split(/\s+/); list = list.filter((s) => { const t = `${s.code} ${s.title} ${s.instr}`.toLowerCase(); return q.every((w) => t.includes(w)); }); }
+  const scored = list.map((s) => ({ s, tags: why(s) }));
+  if (ui.needed) list = scored.filter((x) => x.tags.length);
+  else list = scored;
+  list.sort((a, b) => (b.tags.filter((t) => t.kind === 'req').length - a.tags.filter((t) => t.kind === 'req').length) || (b.tags.length - a.tags.length) || a.s.code.localeCompare(b.s.code) || a.s.sec.localeCompare(b.s.sec));
+  const shown = list.slice(0, 60);
+  $('#sched-count').textContent = `${list.length} section${list.length === 1 ? '' : 's'}${list.length > 60 ? ', showing 60' : ''}`;
+  $('#sched-candidates').innerHTML = shown.map(({ s, tags }) => `<div class="flex items-start gap-2 border-b border-zinc-100 py-1.5 text-xs last:border-0 dark:border-zinc-800/70">
+      <button type="button" class="btn-icon mt-0.5 size-6 shrink-0 rounded" data-f="add" data-crn="${s.crn}" aria-label="Add ${esc(s.code)} ${esc(s.sec)}"><svg class="size-3.5"><use href="#i-plus"/></svg></button>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-baseline gap-1.5"><span class="course-ref cursor-help font-mono text-[12px] font-medium" data-course="${esc(s.code)}" tabindex="0">${esc(s.code)}</span><span class="font-mono text-[10px] text-zinc-400">${esc(s.sec)}</span><span class="min-w-0 truncate text-zinc-600 dark:text-zinc-400">${esc(titleCase(s.title))}</span></div>
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500"><span class="font-mono">${esc(meetingText(s))}</span><span>${s.credits} hr</span>${s.dist ? `<span>D${s.dist === 'I' ? 1 : s.dist === 'II' ? 2 : 3}</span>` : ''}${s.instr ? `<span class="truncate">${esc(s.instr.split(' ').slice(0, 2).join(' '))}</span>` : ''}
+          ${tags.map((t) => `<span class="rounded px-1 ${t.kind === 'req' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}">${esc(t.text)}</span>`).join('')}</div>
+      </div></div>`).join('') || '<p class="py-3 text-xs text-zinc-500">No sections match. Loosen a filter or clear the search.</p>';
+}

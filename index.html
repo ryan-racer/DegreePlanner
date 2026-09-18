@@ -88,6 +88,7 @@
       <nav class="-mb-px flex gap-6" role="tablist" aria-label="Sections">
         <button type="button" role="tab" data-tab="audit" class="tab-btn" aria-selected="true">Audit</button>
         <button type="button" role="tab" data-tab="planner" class="tab-btn" aria-selected="false">Planner <span id="tab-planner-count" class="ml-1 rounded-full bg-zinc-100 px-1.5 font-mono text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300" hidden></span></button>
+        <button type="button" role="tab" data-tab="schedule" class="tab-btn" aria-selected="false">Schedule</button>
       </nav>
       <div class="flex items-center gap-3 pb-2">
         <p id="tab-summary" class="text-xs text-zinc-500"></p>
@@ -95,6 +96,48 @@
         <button id="reset-btn" class="btn btn-ghost btn-sm text-zinc-500 hover:text-red-600 dark:hover:text-red-400" type="button" title="Remove the imported transcript, programs, and plan">Reset</button>
       </div>
     </div>
+
+    <section data-panel="schedule" hidden>
+      <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-semibold tracking-tight">Semester schedule</h2>
+          <p class="text-sm text-zinc-500">Real section times from the course schedule. Find courses that fit around what you already have.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <select id="sched-term" class="field" aria-label="Term"></select>
+          <button type="button" class="btn btn-ghost btn-sm text-zinc-500" data-f="clear">Clear</button>
+        </div>
+      </div>
+      <p id="sched-note" class="mb-3 text-xs text-amber-700 dark:text-amber-400"></p>
+      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div class="space-y-4">
+          <section class="panel p-3">
+            <div class="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span id="sched-stats" class="font-medium"></span>
+              <span id="sched-clash" class="font-medium text-red-600 dark:text-red-400"></span>
+            </div>
+            <div id="sched-grid"></div>
+          </section>
+          <section class="panel px-3 py-2">
+            <h3 class="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Scheduled sections</h3>
+            <div id="sched-selected" class="divide-y divide-zinc-100 dark:divide-zinc-800/70"></div>
+          </section>
+        </div>
+        <aside class="panel flex max-h-[80vh] flex-col lg:sticky lg:top-20">
+          <div class="space-y-2 border-b border-zinc-200 p-3 dark:border-zinc-800">
+            <input id="sched-search" type="search" class="field w-full" placeholder="Search code, title, or instructor" aria-label="Search sections">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+              <label class="flex items-center gap-1.5"><input id="sched-fits" type="checkbox" class="size-3.5 accent-zinc-900 dark:accent-zinc-100" checked> Fits my schedule</label>
+              <label class="flex items-center gap-1.5"><input id="sched-needed" type="checkbox" class="size-3.5 accent-zinc-900 dark:accent-zinc-100"> Fills a requirement</label>
+              <label class="flex items-center gap-1.5"><input id="sched-hide-taken" type="checkbox" class="size-3.5 accent-zinc-900 dark:accent-zinc-100" checked> Hide taken</label>
+            </div>
+            <div class="flex items-center gap-1.5"><span class="text-[11px] text-zinc-500">Distribution</span><div id="sched-dist" class="flex gap-1"></div></div>
+            <p id="sched-count" class="text-[11px] text-zinc-500"></p>
+          </div>
+          <div id="sched-candidates" class="min-h-0 flex-1 overflow-y-auto px-3"></div>
+        </aside>
+      </div>
+    </section>
 
     <section class="panel" data-panel="planner">
       <div class="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
