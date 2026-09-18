@@ -253,6 +253,8 @@ function renderGrid(selected) {
 function renderSelected(selected, sections) {
   const $ = ctx.$;
   const credits = selected.reduce((a, s) => a + s.credits, 0);
+  // An empty week is a screen of blank grid on a phone, pushing the course search out of view.
+  $('#sched-grid').classList.toggle('max-lg:hidden', !selected.length);
   $('#sched-stats').textContent = selected.length ? `${selected.length} section${selected.length === 1 ? '' : 's'} · ${credits} credit hours${credits > (ctx.school.maxTermHours || 18) ? ` · over ${ctx.school.maxTermHours || 18}, needs overload approval` : ''}` : 'Nothing scheduled yet';
   const over = credits > (ctx.school.maxTermHours || 18); $('#sched-stats').classList.toggle('text-amber-700', over); $('#sched-stats').classList.toggle('dark:text-amber-400', over);
   $('#sched-selected').innerHTML = selected.map((s) => {
