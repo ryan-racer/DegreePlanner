@@ -46,6 +46,9 @@ export function auditProgram(program, courses, overrides = []) {
   const tree = evalNodes(program.requirements, courses, used, reserved, '');
   const sum = summarize(tree);
   const usedCourses = courses.filter((c) => used.has(c.key));
+  const constraints = evalConstraints(program.constraints, tree, sum.remaining);
+  sum.remaining += constraints.reduce((a, c) => a + c.penalty, 0);
+  sum.total += constraints.reduce((a, c) => a + c.penalty, 0);
   return {
     program,
     satisfied: sum.remaining === 0,
@@ -55,7 +58,44 @@ export function auditProgram(program, courses, overrides = []) {
     usedCourses,
     usedHours: usedCourses.reduce((a, c) => a + c.hours, 0),
     tree,
+    constraints,
   };
+}
+
+/** Courses placed under the given node paths (or everywhere when `among` is omitted). */
+function coursesUnder(tree, among) {
+  const out = [];
+  const inScope = (path) => !among || among.some((a) => path === a || path.startsWith(`${a}.`) || path.startsWith(`${a}#`));
+  const walk = (n) => {
+    if (inScope(n.path || '')) {
+      for (const sl of n.slots || []) if (sl.course) out.push(sl.course);
+      for (const c of n.filled || []) out.push(c);
+    }
+    for (const ch of n.children || []) walk(ch);
+  };
+  tree.forEach(walk);
+  return [...new Map(out.map((c) => [c.key, c])).values()];
+}
+
+/**
+ * Program-level rules that span sections:
+ *   { type: 'atLeast', count | hours, from: [specs], among?: [paths], label }  e.g. "5 of these courses at 300+"
+ *   { type: 'atMost',  count | hours, from: [specs], among?: [paths], label }  e.g. "no more than 2 at the 100 level"
+ * A shortfall only costs extra courses once the open slots that could absorb it are used up.
+ */
+function evalConstraints(constraints, tree, openSlots) {
+  return (constraints || []).map((k) => {
+    const pool = coursesUnder(tree, k.among).filter((c) => (k.from || []).some((s) => courseMatchesSpec(c, s)));
+    const byHours = k.hours != null;
+    const have = byHours ? pool.reduce((a, c) => a + c.hours, 0) : pool.length;
+    const need = byHours ? k.hours : k.count;
+    let short = 0;
+    if (k.type === 'atMost') short = Math.max(0, have - need);
+    else short = Math.max(0, need - have);
+    const shortCourses = byHours ? Math.ceil(short / DEFAULT_HOURS) : short;
+    const penalty = k.type === 'atMost' ? shortCourses : Math.max(0, shortCourses - openSlots);
+    return { constraint: k, have, need, satisfied: short === 0, penalty, courses: pool };
+  });
 }
 
 /** Audit every program in a school; sorted by closeness. */

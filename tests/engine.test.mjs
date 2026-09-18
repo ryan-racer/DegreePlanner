@@ -82,3 +82,21 @@ test('suggestions collapse cross-listed duplicates and report pattern slots', ()
   assert.equal(suggestions.length, 1);
   assert.equal(patterns.length, 1);
 });
+
+test('program-level constraints: atLeast across sections and atMost caps', () => {
+  const p = prog([
+    { type: 'all', name: 'Core', items: ['CS 101', 'CS 201'] },
+    { type: 'choose', name: 'Electives', count: 2, from: [{ dept: 'CS' }, { dept: 'MA' }] },
+  ], { constraints: [
+    { type: 'atLeast', count: 2, from: [{ dept: '*', min: 300 }], label: 'Two courses at 300+' },
+    { type: 'atMost', count: 0, from: [{ dept: 'MA' }], among: ['1'], label: 'No MA electives' },
+  ] });
+  const bad = auditProgram(p, prep([c('CS 101'), c('CS 201'), c('MA 101'), c('CS 301')]));
+  assert.equal(bad.constraints[0].satisfied, false);   // only CS 301 is 300+
+  assert.equal(bad.constraints[1].satisfied, false);   // MA 101 sits in the electives
+  assert.equal(bad.satisfied, false);
+  assert.ok(bad.remaining >= 1);
+  const good = auditProgram(p, prep([c('CS 101'), c('CS 201'), c('CS 310'), c('CS 301')]));
+  assert.ok(good.constraints.every((k) => k.satisfied));
+  assert.equal(good.remaining, 0);
+});

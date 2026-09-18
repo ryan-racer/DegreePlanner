@@ -43,6 +43,21 @@ export default {
 
 Prefer these over a note whenever the catalog states such a rule; the audit is wrong otherwise.
 
+### Program-level constraints (rules that span sections)
+
+```js
+degreeHours: 134,              // total hours the degree requires when it is more than the university minimum
+constraints: [
+  { type: 'atLeast', count: 5, from: [{ dept: '*', min: 300 }], label: 'At least 5 courses at the 300 level or above' },
+  { type: 'atMost',  count: 2, from: [{ dept: '*', max: 199 }], among: ['1'], label: 'No more than 2 electives at the 100 level' },
+  { type: 'atMost',  hours: 3, from: ['MATH 479', { dept: 'MATH', min: 490, max: 499 }], label: 'At most 3 hours of research' },
+],
+```
+
+`among` limits the rule to courses placed under those requirement nodes (paths are indexes into `requirements`, dotted
+for children: `'1'` is the second top-level node, `'0.2'` its third child). Omit it to cover every course the program
+uses. A shortfall only adds courses to go once the open slots that could absorb it are used up.
+
 Rules of thumb:
 
 * Use `all` for "Complete the following" lists. Use `course` when a section is one course.

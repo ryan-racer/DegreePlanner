@@ -7,23 +7,23 @@
 set -euo pipefail
 WORK=${1:?workdir}; shift || true
 TERMS=${*:-"202610 202620 202630 202710"}
-GA=https://ga.rice.edu
+GA=https://ga.rice.edu${GA_PREFIX:-}
 mkdir -p "$WORK"/{pages,courses,sched}
 cd "$WORK"
 
 echo "== program pages"
 : > depts.txt
 for s in engineering natural-sciences social-sciences humanities business architecture music interdisciplinary; do
-  curl -sL "$GA/programs-study/departments-programs/$s/" | grep -o "href=\"/programs-study/departments-programs/$s/[a-z0-9-]*/\"" | sed 's/href="//;s/"$//' >> depts.txt
+  { curl -sL "$GA/programs-study/departments-programs/$s/" |  grep -o "href=\"${GA_PREFIX:-}/programs-study/departments-programs/$s/[a-z0-9-]*/\"" || true; } | sed 's/href="//;s/"$//' >> depts.txt
 done
 sort -u depts.txt -o depts.txt
 : > programs.txt
 while read -r d; do
-  curl -sL "$GA$d" | grep -o "href=\"${d}[a-z0-9-]*/\"" | sed 's/href="//;s/"$//' >> programs.txt
+  { curl -sL "$GA$d" | grep -o "href=\"${d}[a-z0-9-]*/\"" || true; } | sed 's/href="//;s/"$//' >> programs.txt
 done < depts.txt
 # undergraduate programs only: bachelor's degrees, concentrations, and minors
 grep -E '(-ba|-bs|-bs[a-z]+|-barch|-barch-direct-entry|-bmus|-minor|-ba-[a-z-]+concentration|-bs-[a-z-]+concentration)/$' programs.txt \
-  | grep -vE '(-ad|certificate|mba|macc|mfin|phd|-ms[a-z]*|mstat|mcs|mds|business-administration)/$' | sort -u > ugprograms.txt
+  | { grep -vE '(-ad|certificate|mba|macc|mfin|phd|-ms[a-z]*|mstat|mcs|mds|business-administration)/$' || true; } | sort -u > ugprograms.txt
 while read -r u; do
   f="pages/$(basename "$u").html"; [ -s "$f" ] || curl -sL "$GA$u" -o "$f"
 done < ugprograms.txt

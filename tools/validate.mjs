@@ -55,6 +55,18 @@ for (const f of files) {
   if (mod.notes && !Array.isArray(mod.notes)) err(f, 'notes must be an array of strings');
   if (ids.has(mod.id)) err(f, `duplicate id ${mod.id}`); ids.add(mod.id);
   if (!Array.isArray(mod.requirements) || !mod.requirements.length) err(f, 'requirements[] is required'); else mod.requirements.forEach((n, i) => checkNode(f, n, `requirements[${i}]`));
+  if (mod.degreeHours != null && !(mod.degreeHours >= 60)) err(f, 'degreeHours must be a number >= 60');
+  if (mod.constraints != null) {
+    if (!Array.isArray(mod.constraints)) err(f, 'constraints must be an array');
+    else mod.constraints.forEach((k, i) => {
+      const at = `constraints[${i}]`;
+      if (!['atLeast', 'atMost'].includes(k.type)) err(f, `${at}: type must be atLeast or atMost`);
+      if (!((Number.isInteger(k.count) && k.count >= 0) || k.hours >= 0)) err(f, `${at}: needs count or hours`);
+      if (!k.label) err(f, `${at}: needs a label`);
+      if (!Array.isArray(k.from) || !k.from.length) err(f, `${at}: needs from[]`); else k.from.forEach((sp, j) => checkSpec(f, sp, `${at}.from[${j}]`));
+      if (k.among != null && (!Array.isArray(k.among) || k.among.some((a) => !/^\d+(\.(o?\d+))*$/.test(a)))) err(f, `${at}: among must be node paths like "1" or "0.2"`);
+    });
+  }
 }
 console.log(errors ? `${errors} error(s) in ${files.length} file(s)` : `✓ ${files.length} program file(s) valid`);
 process.exit(errors ? 1 : 0);
