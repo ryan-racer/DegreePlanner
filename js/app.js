@@ -6,7 +6,7 @@ import { normalizeCode } from './engine/match.js';
 import { programCard, esc, titleCase } from './ui/render.js';
 import { initCourseCards, setCourseCardSchool } from './ui/coursecard.js';
 import { initCourseAutocomplete, setAutocompleteSchool } from './ui/autocomplete.js';
-import { initSchedule, render as renderSchedule } from './ui/schedule.js';
+import { initSchedule, render as renderSchedule, findSections, distributionSummary } from './ui/schedule.js';
 
 const $ = (sel) => document.querySelector(sel);
 const PAGE = 15;
@@ -376,6 +376,7 @@ function renderResults() {
   const declaredPrograms = state.declared.map((id) => school.programs.find((p) => p.id === id)).filter(Boolean);
   const declaredResults = declaredPrograms.map((p) => auditProgram(p, courses));
   lastPrepared = courses; lastDeclaredResults = declaredResults;
+  renderOverview(courses, declaredResults);
   $('#declared-audits').innerHTML = declaredResults.length
     ? declaredResults.map((r) => programCard(r, { expanded: state.expanded.has(r.program.id), declared: true, school, variant: 'card' })).join('')
     : `<div class="panel px-4 py-6 text-center text-sm text-zinc-500">No declared programs yet. Choose your major from the menu, or add one from the list below.</div>`;
@@ -398,7 +399,44 @@ function renderResults() {
   more.textContent = `Show ${Math.min(PAGE, results.length - shown.length)} more of ${results.length - shown.length}`;
 }
 
+let overviewToken = 0;
+function renderOverview(courses, declaredResults) {
+  const el = $('#overview'); if (!el) return;
+  const total = courses.reduce((a, c) => a + c.hours, 0);
+  const upper = courses.filter((c) => Number(c.code.slice(-3)) >= 300).reduce((a, c) => a + c.hours, 0);
+  const used = new Set(declaredResults.flatMap((r) => r.usedCourses.map((c) => c.key)));
+  const unused = courses.filter((c) => !used.has(c.key));
+  const target = school.degreeHours || 120;
+  const tile = (label, value, sub = '') => `<div class="min-w-0"><div class="text-[11px] text-zinc-500">${label}</div><div class="text-base font-semibold tabular-nums leading-tight">${value}</div>${sub ? `<div class="text-[11px] text-zinc-500">${sub}</div>` : ''}</div>`;
+  const distSlot = `<div id="overview-dist" class="min-w-0"><div class="text-[11px] text-zinc-500">Distribution</div><div class="text-base font-semibold tabular-nums leading-tight text-zinc-400">…</div></div>`;
+  el.innerHTML = `<div class="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+      ${tile('Hours', `${total % 1 ? total.toFixed(1) : total}<span class="text-sm font-normal text-zinc-400"> / ${target}</span>`, 'completed, in progress, planned')}
+      ${tile('Upper-level hours', `${upper % 1 ? upper.toFixed(1) : upper}`, '300 level and above')}
+      ${distSlot}
+      <div class="min-w-0"><div class="text-[11px] text-zinc-500">Not used by your programs</div><div class="text-base font-semibold tabular-nums leading-tight">${unused.length}<span class="text-sm font-normal text-zinc-400"> course${unused.length === 1 ? '' : 's'}</span></div>${unused.length ? `<button type="button" id="unused-toggle" class="text-[11px] font-medium text-blue-700 hover:underline dark:text-blue-400">Show</button>` : ''}</div>
+    </div>
+    <div id="unused-list" class="mt-3 hidden flex-wrap gap-1.5"></div>`;
+  if (unused.length) {
+    $('#unused-list').innerHTML = unused.sort((a, b) => a.code.localeCompare(b.code)).map((c) => `<span class="rounded border border-zinc-200 px-1.5 py-0.5 font-mono text-[11px] dark:border-zinc-800"><span class="course-ref cursor-help" data-course="${esc(c.code)}" tabindex="0">${esc(c.code)}</span><span class="ml-1 font-sans text-zinc-500">${c.hours}</span></span>`).join('');
+    $('#unused-toggle').addEventListener('click', (e) => { const l = $('#unused-list'); const open = l.classList.toggle('hidden'); l.classList.toggle('flex', !open); e.target.textContent = open ? 'Show' : 'Hide'; });
+  }
+  const token = ++overviewToken;
+  distributionSummary(courses, school).then((d) => {
+    if (token !== overviewToken || !d) return;
+    const slot = $('#overview-dist'); if (!slot) return;
+    slot.innerHTML = `<div class="text-[11px] text-zinc-500">Distribution</div><div class="flex gap-2 text-base font-semibold tabular-nums leading-tight">${d.cfg.groups.map((g, i) => `<span title="${esc(d.have[g].codes.join(', ') || 'none yet')}"><span class="text-[11px] font-normal text-zinc-500">D${i + 1} </span><span class="${d.need[g] ? 'text-amber-600 dark:text-amber-400' : ''}">${Math.min(d.have[g].count, d.cfg.coursesPerGroup)}/${d.cfg.coursesPerGroup}</span></span>`).join('')}</div><div class="text-[11px] text-zinc-500">${d.cfg.coursesPerGroup} courses per group</div>`;
+  });
+}
+
 function initResults() {
+  window.addEventListener('dp:find-sections', (e) => {
+    state.tab = 'schedule';
+    try { localStorage.setItem('rf.tab', state.tab); } catch { /* ignore */ }
+    history.replaceState(null, '', '#schedule');
+    renderTabs();
+    findSections(e.detail.code);
+    window.scrollTo({ top: 0 });
+  });
   $('#declare-select').addEventListener('change', (e) => {
     const id = e.target.value; if (!id) return;
     if (!state.declared.includes(id)) state.declared.push(id);

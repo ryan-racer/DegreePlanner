@@ -24,6 +24,15 @@ const PALETTE = [
 let ctx; // { state, school, $, save, rerender, getCourses, getDeclaredResults }
 let ui = { query: '', fits: true, needed: false, hideTaken: true, dist: '' };
 
+/** Jump to a course's sections for the current term (used by the hover card's "Find sections"). */
+export function findSections(code) {
+  ui = { ...ui, query: code.toLowerCase(), hideTaken: false, needed: false, dist: '' };
+  const $ = ctx.$;
+  $('#sched-search').value = code; $('#sched-hide-taken').checked = false; $('#sched-needed').checked = false;
+  render();
+}
+export function latestSectionTerm(school) { const t = school.sectionTerms || []; return t[t.length - 1] || null; }
+
 export function initSchedule(context) {
   ctx = context;
   const root = ctx.$('[data-panel="schedule"]');
@@ -46,7 +55,7 @@ export function initSchedule(context) {
 }
 
 // ---------- data ----------
-function loadSections(term) {
+export function loadSections(term) {
   if (!sectionCache.has(term)) {
     sectionCache.set(term, fetch(`${ctx.school.sectionDataPath}${term}.json`).then((r) => (r.ok ? r.json() : { sections: [] }))
       .then((d) => d.sections.map((x) => ({ crn: x[0], code: x[1], sec: x[2], title: x[3], instr: x[4], credits: Number(x[5]) || 0, dist: x[6], part: x[7], meetings: x[8].map((m) => ({ days: m[0], start: m[1], end: m[2] })) })))
@@ -170,10 +179,10 @@ function renderSelected(selected, sections) {
 }
 
 /** Which distribution groups still need courses, from everything taken, in progress, or planned. */
-async function distributionNeeds() {
-  const cfg = ctx.school.distribution;
+export async function distributionSummary(courses, school = ctx?.school) {
+  const cfg = school?.distribution;
   if (!cfg) return null;
-  const courses = ctx.getCourses();
+  if (!ctx) ctx = { school };
   const depts = [...new Set(courses.map((c) => c.code.split(' ')[0]))];
   const data = Object.assign({}, ...(await Promise.all(depts.map(loadDept))));
   const have = {}; for (const g of cfg.groups) have[g] = { count: 0, hours: 0, codes: [] };
@@ -196,7 +205,7 @@ async function renderCandidates() {
   const results = ctx.getDeclaredResults();
   const { suggestions, patterns } = suggestCourses(results, courses, ctx.school, 500);
   const reqByCode = new Map(suggestions.map((s) => [s.code, s.programs]));
-  const dist = await distributionNeeds();
+  const dist = await distributionSummary(courses);
 
   // Distribution summary chips
   $('#sched-dist').innerHTML = dist ? dist.cfg.groups.map((g) => {

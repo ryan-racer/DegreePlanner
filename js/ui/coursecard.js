@@ -2,6 +2,7 @@
 // terms the course has been offered. Details are loaded lazily per department from the school's data path.
 
 import { esc, titleCase } from './render.js';
+import { loadSections, latestSectionTerm } from './schedule.js';
 
 const cache = new Map(); // dept -> Promise<object>
 let card, current, hideTimer, school;
@@ -17,6 +18,7 @@ export function initCourseCards(activeSchool) {
   document.addEventListener('mouseover', (e) => { const el = e.target.closest?.('[data-course]'); if (el) show(el); });
   document.addEventListener('mouseout', (e) => { const el = e.target.closest?.('[data-course]'); if (el && !card.contains(e.relatedTarget)) scheduleHide(); });
   card.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+  card.addEventListener('click', (e) => { const b = e.target.closest('[data-find-sections]'); if (b) { hide(); window.dispatchEvent(new CustomEvent('dp:find-sections', { detail: { code: b.dataset.findSections } })); } });
   card.addEventListener('mouseleave', scheduleHide);
   document.addEventListener('focusin', (e) => { const el = e.target.closest?.('[data-course]'); if (el) show(el); else if (!card.contains(e.target)) hide(); });
   document.addEventListener('click', (e) => {
@@ -42,9 +44,11 @@ async function show(el) {
   card.innerHTML = body(code, info, null, true);
   card.classList.remove('hidden');
   position(el);
-  const details = await loadDetails(code);
+  const term = latestSectionTerm(school);
+  const [details, sections] = await Promise.all([loadDetails(code), term && school.sectionDataPath ? loadSections(term) : Promise.resolve([])]);
   if (current !== el) return;
-  card.innerHTML = body(code, info, details, false);
+  const timed = sections.filter((x) => x.code === code && x.meetings.length).length;
+  card.innerHTML = body(code, info, details, false, term ? { term, count: timed } : null);
   position(el);
 }
 
@@ -93,7 +97,7 @@ function offeringSummary(offered, allTerms) {
   return { line, chips };
 }
 
-function body(code, info, d, loading) {
+function body(code, info, d, loading, sec) {
   const title = titleCase(info?.title || d?.t || '');
   const meta = [info?.hours != null ? `${info.hours} hrs` : '', d?.dist ? d.dist.replace(/^Distribution Group/i, 'Dist.') : '', (d?.level || '').replace('Undergraduate', 'UG').replace('Graduate', 'Grad')].filter(Boolean).join(' · ');
   const desc = d?.d ? (d.d.length > 420 ? d.d.slice(0, 400).replace(/\s+\S*$/, '') + '…' : d.d) : '';
@@ -111,5 +115,6 @@ function body(code, info, d, loading) {
       <div class="text-[11px] text-zinc-600 dark:text-zinc-400">${esc(off.line)}</div>
       ${off.chips.length ? `<div class="mt-1.5 flex flex-wrap gap-1">${off.chips.map((c) => `<span class="rounded px-1.5 py-px font-mono text-[10px] ${c.on ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-zinc-100 text-zinc-400 line-through dark:bg-zinc-800 dark:text-zinc-500'}">${esc(c.name)}</span>`).join('')}</div>` : ''}
     </div>` : ''}
-    ${d?.x ? `<div class="mt-1.5 text-[11px] text-zinc-500">Cross-listed: ${esc(d.x)}</div>` : ''}`;
+    ${d?.x ? `<div class="mt-1.5 text-[11px] text-zinc-500">Cross-listed: ${esc(d.x)}</div>` : ''}
+    ${sec ? `<div class="mt-2 flex items-center justify-between gap-2 border-t border-zinc-200 pt-2 text-[11px] dark:border-zinc-800"><span class="text-zinc-600 dark:text-zinc-400">${esc(termName(sec.term))}: ${sec.count ? `${sec.count} section${sec.count === 1 ? '' : 's'} with set times` : 'no scheduled sections'}</span>${sec.count ? `<button type="button" class="font-medium text-blue-700 hover:underline dark:text-blue-400" data-find-sections="${esc(code)}">Find sections →</button>` : ''}</div>` : ''}`;
 }
