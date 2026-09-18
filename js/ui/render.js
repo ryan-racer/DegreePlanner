@@ -100,6 +100,8 @@ function nodeHtml(n, school, depth) {
   }
 }
 
+const passFailText = (school, code) => (school.passFailNotice ? school.passFailNotice([code]) : `${code} was taken Pass/Fail; a major or minor may require the letter grade.`);
+
 function slotHtml(course, specs, school, prefix, label, ov = {}) {
   const sub = EDIT && ov.key ? `<button type="button" class="shrink-0 text-[11px] font-medium text-blue-700 hover:underline dark:text-blue-400" data-ov-add="${esc(ov.key)}" data-prog="${esc(EDIT)}" title="Count one of your courses here (for advisor-approved substitutions)">Substitute</button>` : '';
   if (course) {
@@ -111,6 +113,7 @@ function slotHtml(course, specs, school, prefix, label, ov = {}) {
       ${icon(planned ? 'i-planned' : ip ? 'i-half' : 'i-check', planned ? 'text-sky-500' : ip ? 'text-amber-500' : 'text-emerald-600 dark:text-emerald-400')}
       <span class="course-ref shrink-0 cursor-help whitespace-nowrap font-mono text-[13px] underline decoration-dotted decoration-zinc-300 underline-offset-4 hover:decoration-zinc-500 dark:decoration-zinc-600" data-course="${esc(course.code)}" tabindex="0">${esc(course.code)}</span>
       <span class="min-w-0 truncate text-zinc-500">${esc(titleCase(title))}</span>
+      ${course.passFail ? `<span class="shrink-0 cursor-help text-amber-500" tabindex="0" role="img" aria-label="${esc(passFailText(school, course.code))}" title="${esc(passFailText(school, course.code))}">${icon('i-alert', '')}</span>` : ''}
       ${ov.manual ? `<span class="rounded bg-violet-50 px-1 text-[10px] font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300" title="Manual substitution">manual</span>${EDIT ? `<button type="button" class="text-[11px] text-zinc-500 hover:underline" data-ov-remove="${esc(ov.key)}" data-code="${esc(course.code)}" data-prog="${esc(EDIT)}">undo</button>` : ''}` : ''}
       <span class="ml-auto hidden shrink-0 font-mono text-[11px] tabular-nums text-zinc-400 sm:inline">${esc(right)}</span></div>`;
   }

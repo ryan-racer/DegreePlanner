@@ -9,13 +9,11 @@ const isTransfer = (c) => c.source === 'transfer';
 const plural = (n, one, many = `${one}s`) => (n === 1 ? one : many);
 
 /**
- * University rules that apply to every major and minor, as sentences: Pass/Fail grades, the minimum GPA across the
- * applied courses, and upper-level work in residence. `result` comes from auditProgram.
+ * University rules that apply to every major and minor, as sentences: the minimum GPA across the applied courses
+ * and upper-level work in residence. (Pass/Fail courses are marked on their own rows.) `result` comes from auditProgram.
  */
 export function programNotes(result, school) {
   const cfg = school?.degree || {}, used = result.usedCourses, out = [];
-  const pf = result.passFailUsed || [];
-  if (pf.length) out.push(school.passFailNotice ? school.passFailNotice(pf) : `${pf.join(', ')} ${plural(pf.length, 'was', 'were')} taken Pass/Fail; a major or minor may require the letter grade.`);
   const g = gpaOf(used.filter((c) => !isTransfer(c)));
   if (cfg.programMinGpa && g != null && g < cfg.programMinGpa) out.push(`GPA across the courses applied here is ${g.toFixed(2)}; at least ${cfg.programMinGpa.toFixed(2)} is required.`);
   if (cfg.residency && result.program.kind === 'major') {
