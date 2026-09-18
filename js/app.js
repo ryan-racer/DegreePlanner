@@ -85,6 +85,11 @@ async function handleFile(file) {
       text = await pdfToText(await file.arrayBuffer(), (p, n) => setStatus(`Reading PDF, page ${p} of ${n}…`));
     } else {
       text = await file.text();
+      if (/\.json$/i.test(file.name) || text.trimStart().startsWith('{')) {
+        let data = null;
+        try { data = JSON.parse(text); } catch { /* not JSON after all */ }
+        if (data && data.app === 'DegreePlanner') { restore(data, file.name); return; }
+      }
     }
     ingest(text, file.name);
   } catch (e) {
@@ -119,6 +124,21 @@ function ingest(text, label = 'text') {
 const STOP = new Set(['and', 'of', 'the', 'in', 'for', 'concentration', 'major', 'minor', 'option']);
 const tokens = (str) => str.toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter((t) => t && !STOP.has(t));
 const tokMatch = (a, b) => a === b || (a.length >= 3 && b.length >= 3 && (a.startsWith(b) || b.startsWith(a)));
+
+/** Restore a backup produced by the Export button. */
+function restore(data, label) {
+  if (data.school && data.school !== school.id) { setStatus(`This backup is for a different school (${data.school}).`, 'error'); return; }
+  state.courses = Array.isArray(data.courses) ? data.courses : [];
+  state.declared = Array.isArray(data.declared) ? data.declared.filter((id) => school.programs.some((p) => p.id === id)) : [];
+  state.plan = Array.isArray(data.plan) ? data.plan : [];
+  state.schedule = data.schedule && typeof data.schedule === 'object' ? data.schedule : {};
+  state.includeInProgress = data.includeInProgress !== false;
+  state.includePlanned = data.includePlanned !== false;
+  state.expanded = new Set(state.declared);
+  setStatus(`Restored ${state.courses.length} courses, ${state.declared.length} program${state.declared.length === 1 ? '' : 's'}, and ${state.plan.length} planned term${state.plan.length === 1 ? '' : 's'} from ${label}.`, 'ok');
+  save(); renderAll();
+  window.scrollTo({ top: 0 });
+}
 
 function detectDeclared(declared) {
   const found = [];
@@ -174,6 +194,14 @@ function initImport() {
   });
 
   $('#print-btn').addEventListener('click', () => window.print());
+  $('#export-btn').addEventListener('click', () => {
+    const payload = { app: 'DegreePlanner', version: 1, school: school.id, exported: new Date().toISOString(), courses: state.courses, declared: state.declared, plan: state.plan, schedule: state.schedule, includeInProgress: state.includeInProgress, includePlanned: state.includePlanned };
+    const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = `degreeplanner-${school.id}-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
   $('#reset-btn').addEventListener('click', () => {
     if (!confirm('Reset DegreePlanner? This removes the imported transcript, your declared programs, and your plan from this browser.')) return;
     resetAll();

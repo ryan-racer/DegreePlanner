@@ -38,7 +38,8 @@ npm run watch     # rebuild on change while editing
 4. The explorer ranks all remaining programs by completion. Expand any card for a requirement-by-requirement breakdown.
 5. Plan ahead: add future terms and the courses you intend to take. Planned courses count in every audit (marked as planned), and the sidebar suggests the courses that would close the most open requirements in your declared programs.
 6. Hover or tap any course code for its description, prerequisites, credit hours, and which recent semesters it was offered.
-7. Schedule tab: pick sections for a term from real meeting times, see them on a weekly grid with conflicts flagged, and search for sections that fit your open slots and fill a requirement or a distribution group. Sections chosen for a future term land in the planner automatically.
+7. Export downloads a JSON backup of everything (courses, programs, plan, schedule). Drop it on the import screen on any device to restore.
+8. Schedule tab: pick sections for a term from real meeting times, see them on a weekly grid with conflicts flagged, and search for sections that fit your open slots and fill a requirement or a distribution group. Sections chosen for a future term land in the planner automatically.
 
 Audits are estimates based on the current General Announcements. They do not model university-wide requirements (distribution, FWIS, LPAP, upper-level hours) or advisor-approved substitutions.
 
