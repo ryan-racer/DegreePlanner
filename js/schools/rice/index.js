@@ -30,7 +30,7 @@ function programsFor(year) {
   const out = [];
   for (const base of programs) {
     const exact = variants[year]?.[base.id];
-    if (exact) { out.push({ ...exact, catalogNote: `Exact ${year} catalog requirements.` }); continue; }
+    if (exact) { out.push({ ...exact, catalogNote: `Exact ${year} catalog requirements.`, catalogExact: true }); continue; }
     const o = overlays[year][base.id];
     if (!o) { out.push(base); continue; }
     if (o.absent) continue;
