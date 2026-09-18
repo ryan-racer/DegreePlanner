@@ -20,8 +20,8 @@ export function programCard(result, { expanded, declared, school, variant = 'row
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span class="font-medium">${esc(p.name)}</span>
-          <span class="text-sm text-zinc-500">${esc(p.degree)}</span>
-          <span class="badge ${p.kind === 'major' ? 'badge-major' : 'badge-minor'}">${esc(p.kind)}</span>
+          ${p.degree && p.degree.toLowerCase() !== p.kind ? `<span class="text-sm text-zinc-500">${esc(p.degree)}</span>` : ''}
+          ${p.kind !== 'major' ? `<span class="badge badge-minor">${esc(p.kind)}</span>` : ''}
           ${done ? '<span class="badge badge-done">Complete</span>' : ''}
         </div>
         <div class="mt-0.5 truncate text-xs text-zinc-500">${esc(p.school)}${p.hours ? ` · ${p.hours} hrs` : ''} · ${n} course${n === 1 ? '' : 's'} apply</div>

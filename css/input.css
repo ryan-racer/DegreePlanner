@@ -12,6 +12,16 @@
   html.dark { color-scheme: dark; }
   body { @apply bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100; }
   ::selection { @apply bg-blue-600/20; }
+  :focus-visible { @apply outline-2 outline-offset-2 outline-blue-600; }
+}
+
+@media print {
+  header, footer, [role="tablist"], #print-btn, #reset-btn, #show-more, .seg, #search, #sort, #declare-select, #replace-btn, #edit-btn, #suggest-box, #add-term, .add-planned, .add-course, [data-action], .more-opts { display: none !important; }
+  [data-panel][hidden] { display: block !important; }
+  main { max-width: none; padding: 0; }
+  .panel, .prog-head, .prog-head + div { break-inside: avoid; }
+  body { background: #fff; color: #000; }
+  a { text-decoration: none; color: inherit; }
 }
 
 @layer components {

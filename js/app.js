@@ -5,6 +5,7 @@ import { prepareCourses, auditProgram, auditAll, suggestCourses } from './engine
 import { normalizeCode } from './engine/match.js';
 import { programCard, esc, titleCase } from './ui/render.js';
 import { initCourseCards, setCourseCardSchool } from './ui/coursecard.js';
+import { initCourseAutocomplete, setAutocompleteSchool } from './ui/autocomplete.js';
 
 const $ = (sel) => document.querySelector(sel);
 const PAGE = 15;
@@ -52,6 +53,7 @@ function initChrome() {
   sel.addEventListener('change', () => {
     school = getSchool(sel.value);
     setCourseCardSchool(school);
+    setAutocompleteSchool(school);
     state.courses = []; state.declared = []; state.plan = []; state.expanded.clear();
     load(); renderAll(); save();
   });
@@ -167,6 +169,7 @@ function initImport() {
     if (t && t.length > 40) { $('#paste-text').value = t; ingest(t, 'pasted text'); }
   });
 
+  $('#print-btn').addEventListener('click', () => window.print());
   $('#reset-btn').addEventListener('click', () => {
     if (!confirm('Reset DegreePlanner? This removes the imported transcript, your declared programs, and your plan from this browser.')) return;
     resetAll();
@@ -230,12 +233,12 @@ function chip(c, { index, planned, termIndex }) {
   const editing = state.editing || planned;
   const h = hoursOf(c);
   return `<div class="flex h-6 items-center gap-1.5 rounded px-1 text-xs ${c.status === 'failed' ? 'opacity-50' : ''} hover:bg-zinc-100 dark:hover:bg-zinc-800/70" ${planned ? `data-planned="${termIndex}" data-code="${esc(c.code)}"` : `data-i="${index}"`} title="${esc(title)}">
-    <span class="course-ref min-w-0 flex-1 cursor-help truncate font-mono text-[12px] ${planned ? 'text-sky-700 dark:text-sky-300' : ''}" data-course="${esc(c.code)}" tabindex="0">${esc(c.code)}<span class="ml-1 font-sans text-[10px] text-zinc-400">${h % 1 ? h.toFixed(1) : h}</span></span>
+    <span class="course-ref min-w-0 flex-1 cursor-help truncate font-mono text-[12px] ${planned ? 'text-sky-700 dark:text-sky-300' : ''}" data-course="${esc(c.code)}" tabindex="0">${esc(c.code)}<span class="ml-1 font-sans text-[11px] text-zinc-500">${h % 1 ? h.toFixed(1) : h}</span></span>
     ${editing && !planned ? `<select data-f="status" class="field h-5 w-[4.2rem] px-1 text-[10px]" aria-label="Status">
         <option value="completed" ${c.status === 'completed' ? 'selected' : ''}>Done</option>
         <option value="in-progress" ${c.status === 'in-progress' ? 'selected' : ''}>In prog.</option>
         <option value="failed" ${c.status === 'failed' ? 'selected' : ''}>Exclude</option></select>`
-      : badge ? `<span class="rounded px-1 font-mono text-[10px] font-medium leading-4 ${gradeClass(c)}">${esc(badge)}</span>` : ''}
+      : badge ? `<span class="rounded px-1 font-mono text-[11px] font-medium leading-4 ${gradeClass(c)}">${esc(badge)}</span>` : ''}
     ${editing ? `<button type="button" class="btn-icon size-4 rounded" data-f="remove" aria-label="Remove ${esc(c.code)}"><svg class="size-3"><use href="#i-x"/></svg></button>` : ''}
   </div>`;
 }
@@ -245,7 +248,7 @@ function renderTimeline() {
   const hrs = counted.reduce((a, c) => a + hoursOf(c), 0);
   const planned = state.plan.reduce((a, t) => a + t.courses.length, 0);
   const g = gpa(state.courses);
-  $('#course-summary').textContent = [`${state.courses.length} courses`, `${hrs % 1 ? hrs.toFixed(1) : hrs} hrs counted`, g ? `GPA ${g}` : '', planned ? `${planned} planned` : ''].filter(Boolean).join(' · ');
+  $('#tab-summary').textContent = [`${state.courses.length} courses`, `${hrs % 1 ? hrs.toFixed(1) : hrs} hrs`, g ? `GPA ${g}` : '', planned ? `${planned} planned` : ''].filter(Boolean).join(' · ');
   $('#include-ip').checked = state.includeInProgress;
   $('#include-planned').checked = state.includePlanned;
   const edit = $('#edit-btn'); edit.textContent = state.editing ? 'Done editing' : 'Edit'; edit.setAttribute('aria-pressed', String(state.editing));
@@ -261,9 +264,9 @@ function renderTimeline() {
   const order = (k) => (k === 'Transfer credit' ? -1 : k === 'Other' ? 1e9 : termKey(k));
   const past = [...groups.entries()].sort((a, b) => order(a[0]) - order(b[0]));
 
-  const addForm = (cls, attrs) => `<form class="${cls} mt-0.5 flex gap-1" ${attrs} autocomplete="off"><input class="field h-6 min-w-0 flex-1 px-1.5 font-mono text-[11px] uppercase placeholder:normal-case" placeholder="Add course" aria-label="Course code" required><button class="btn h-6 px-1.5 text-[11px]" type="submit">Add</button></form>`;
+  const addForm = (cls, attrs) => `<form class="${cls} mt-0.5 flex gap-1" ${attrs} autocomplete="off"><input class="course-input field h-6 min-w-0 flex-1 px-1.5 font-mono text-[11px] uppercase placeholder:normal-case" placeholder="Add course" aria-label="Course code" required><button class="btn h-6 px-1.5 text-[11px]" type="submit">Add</button></form>`;
   const col = (title, sub, body, cls) => `<div class="flex min-w-0 flex-col rounded-md border ${cls}">
-      <div class="flex items-baseline justify-between gap-2 px-2 pt-1.5 pb-1"><span class="truncate text-xs font-medium">${title}</span><span class="shrink-0 font-mono text-[10px] text-zinc-500">${sub}</span></div>
+      <div class="flex items-baseline justify-between gap-2 px-2 pt-1.5 pb-1"><span class="truncate text-xs font-medium">${title}</span><span class="shrink-0 font-mono text-[11px] text-zinc-500">${sub}</span></div>
       <div class="flex flex-col px-1 pb-1">${body}</div></div>`;
 
   const pastCols = past.map(([term, items]) => {
@@ -278,15 +281,15 @@ function renderTimeline() {
     const h = t.courses.reduce((a, c) => a + hoursOf(c), 0);
     const body = t.courses.map((c) => chip({ ...c, status: 'planned', title: school.catalog?.[c.code]?.title }, { planned: true, termIndex: i })).join('') + addForm('add-planned', `data-term="${i}"`);
     const title = `${esc(t.term)}${state.editing ? ` <button type="button" class="btn-icon ml-0.5 size-4 rounded align-middle" data-f="remove-term" data-term="${i}" aria-label="Remove ${esc(t.term)}"><svg class="size-3"><use href="#i-x"/></svg></button>` : ''}`;
-    return col(title, `${h} hr · plan`, body, 'border-dashed border-sky-300 dark:border-sky-800');
+    return col(title, `${h} hr`, body, 'border-dashed border-sky-300 dark:border-sky-800');
   });
 
   const d = nextTermDefault();
-  const addCol = `<form id="add-term" class="flex min-h-16 flex-col justify-center gap-1 rounded-md border border-dashed border-zinc-300 p-2 dark:border-zinc-700" autocomplete="off">
-      <span class="text-[11px] font-medium text-zinc-500">Plan a term</span>
-      <div class="flex gap-1"><select id="term-season" class="field h-6 min-w-0 flex-1 px-1 text-[11px]" aria-label="Season"><option>Spring</option><option>Summer</option><option>Fall</option></select>
-      <input id="term-year" class="field h-6 w-14 px-1 text-[11px]" type="number" min="2000" max="2100" value="${d.year}" aria-label="Year" required>
-      <button class="btn h-6 px-1.5 text-[11px]" type="submit" title="Add term"><svg class="size-3"><use href="#i-plus"/></svg></button></div>
+  const addCol = `<form id="add-term" class="flex flex-col gap-1 rounded-md border border-dashed border-zinc-300 p-2 dark:border-zinc-700" autocomplete="off">
+      <span class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Plan a term</span>
+      <select id="term-season" class="field h-7 px-1.5 text-xs" aria-label="Season"><option>Spring</option><option>Summer</option><option>Fall</option></select>
+      <div class="flex gap-1"><input id="term-year" class="field h-7 min-w-0 flex-1 px-1.5 text-xs" type="number" min="2000" max="2100" value="${d.year}" aria-label="Year" required>
+      <button class="btn h-7 px-2 text-xs" type="submit">Add</button></div>
     </form>`;
   $('#timeline').innerHTML = pastCols.join('') + planCols.join('') + addCol;
   $('#term-season').value = d.season;
@@ -342,7 +345,7 @@ function renderSuggestions(declaredResults, courses) {
       <span class="course-ref cursor-help font-mono text-[12px] font-medium" data-course="${esc(sg.code)}" tabindex="0">${esc(sg.code)}</span>
       <span class="max-w-40 truncate text-zinc-500">${esc(titleCase(sg.title))}</span>
       <span class="rounded bg-zinc-100 px-1 font-mono text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300" title="${esc(sg.programs.join(', '))}">${sg.score}</span>
-      <button type="button" class="btn-icon size-6 rounded" data-f="plan-suggest" data-code="${esc(sg.code)}" title="Add to plan" aria-label="Plan ${esc(sg.code)}"><svg class="size-3.5"><use href="#i-plus"/></svg></button>
+      <button type="button" class="btn-icon size-7 rounded" data-f="plan-suggest" data-code="${esc(sg.code)}" title="Add to plan" aria-label="Plan ${esc(sg.code)}"><svg class="size-3.5"><use href="#i-plus"/></svg></button>
     </div>`).join('');
   $('#suggest-patterns').textContent = patterns.length ? `Also open: ${patterns.map((pt) => `${pt.count > 1 ? `${pt.count} × ` : ''}${pt.label} for ${pt.program}`).join('; ')}.` : '';
 }
@@ -438,7 +441,6 @@ function renderTabs() {
   document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== state.tab; });
   const planned = state.plan.reduce((a, t) => a + t.courses.length, 0);
   const badge = $('#tab-planner-count'); badge.hidden = !planned; badge.textContent = String(planned);
-  $('#tab-summary').textContent = $('#course-summary').textContent;
 }
 function initTabs() {
   document.querySelectorAll('[role="tab"]').forEach((b) => b.addEventListener('click', () => {
@@ -454,6 +456,7 @@ function renderAll() { renderTimeline(); renderResults(); renderTabs(); }
 // ---------- boot ----------
 initChrome();
 initCourseCards(school);
+initCourseAutocomplete(school);
 initImport();
 initTimeline();
 initTabs();
