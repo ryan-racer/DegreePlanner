@@ -567,12 +567,18 @@ function resetAll() {
 }
 
 function renderTabs() {
-  document.querySelectorAll('[role="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
+  document.querySelectorAll('[role="tab"]').forEach((b) => { const on = b.dataset.tab === state.tab; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
   document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== state.tab; });
   const planned = state.plan.reduce((a, t) => a + t.courses.length, 0);
   const badge = $('#tab-planner-count'); badge.hidden = !planned; badge.textContent = String(planned);
 }
 function initTabs() {
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  document.querySelector('[role="tablist"]').addEventListener('keydown', (e) => {
+    const i = tabs.indexOf(document.activeElement); if (i < 0) return;
+    const next = e.key === 'ArrowRight' ? tabs[(i + 1) % tabs.length] : e.key === 'ArrowLeft' ? tabs[(i - 1 + tabs.length) % tabs.length] : e.key === 'Home' ? tabs[0] : e.key === 'End' ? tabs[tabs.length - 1] : null;
+    if (next) { e.preventDefault(); next.focus(); next.click(); }
+  });
   document.querySelectorAll('[role="tab"]').forEach((b) => b.addEventListener('click', () => {
     state.tab = b.dataset.tab;
     try { localStorage.setItem('rf.tab', state.tab); } catch { /* ignore */ }
