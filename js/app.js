@@ -333,17 +333,18 @@ function renderTimeline() {
   const past = [...groups.entries()].sort((a, b) => order(a[0]) - order(b[0]));
 
   const addForm = (cls, attrs) => `<form class="${cls} mt-0.5 flex gap-1" ${attrs} autocomplete="off"><input class="course-input field h-6 min-w-0 flex-1 px-1.5 font-mono text-[11px] uppercase placeholder:normal-case" placeholder="Add course" aria-label="Course code" required><button class="btn h-6 px-1.5 text-[11px]" type="submit">Add</button></form>`;
-  const col = (title, sub, body, cls, heavy = false) => `<div class="flex min-w-0 flex-col rounded-md border ${cls}">
+  const colWidth = state.editing ? 'w-[12.5rem] shrink-0' : 'min-w-[6.75rem] flex-1 basis-0';
+  const col = (title, sub, body, cls, heavy = false) => `<div class="flex ${colWidth} flex-col rounded-md border ${cls}">
       <div class="flex items-baseline justify-between gap-2 px-2 pt-1.5 pb-1"><span class="shrink-0 whitespace-nowrap text-xs font-medium">${title}</span><span class="min-w-0 truncate font-mono text-[11px] ${heavy ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500'}" ${heavy ? 'title="Over 20 hours: needs overload approval"' : 'title="Credit hours · term GPA"'}>${sub}</span></div>
       <div class="flex flex-col px-1 pb-1">${body}</div></div>`;
 
   const pastCols = past.map(([term, items]) => {
     const h = items.filter(({ c }) => c.status !== 'failed').reduce((a, { c }) => a + hoursOf(c), 0);
     const ip = items.every(({ c }) => c.status === 'in-progress');
-    const tg = gpa(items.map(({ c }) => c));
+    const tg = past.length + state.plan.length <= 7 ? gpa(items.map(({ c }) => c)) : null;
     const body = items.sort((a, b) => a.c.code.localeCompare(b.c.code)).map(({ c, i }) => chip(c, { index: i })).join('') +
       (state.editing ? addForm('add-course', `data-term="${esc(term === 'Transfer credit' || term === 'Other' ? '' : term)}" data-source="${term === 'Transfer credit' ? 'transfer' : 'manual'}"`) : '');
-    return col(esc(term), `${h % 1 ? h.toFixed(1) : h}h${ip ? ' · IP' : tg && term !== 'Transfer credit' ? `<span class="hidden sm:inline"> · ${tg}</span>` : ''}`, body, 'border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40', h > 20);
+    return col(esc(term), `${h % 1 ? h.toFixed(1) : h}h${ip ? '·IP' : tg && term !== 'Transfer credit' ? `<span class="hidden sm:inline">·${tg}</span>` : ''}`, body, 'border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40', h > 20);
   });
 
   const planCols = state.plan.map((t, i) => ({ t, i })).sort((a, b) => termKey(a.t.term) - termKey(b.t.term)).map(({ t, i }) => {
@@ -354,16 +355,13 @@ function renderTimeline() {
   });
 
   const d = nextTermDefault();
-  const addCol = `<form id="add-term" class="flex flex-col gap-1 rounded-md border border-dashed border-zinc-300 p-2 dark:border-zinc-700" autocomplete="off">
+  const addCol = `<form id="add-term" class="flex w-[7.5rem] shrink-0 flex-col gap-1 rounded-md border border-dashed border-zinc-300 p-2 dark:border-zinc-700" autocomplete="off">
       <span class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Plan a term</span>
       <select id="term-season" class="field h-7 px-1.5 text-xs" aria-label="Season"><option>Spring</option><option>Summer</option><option>Fall</option></select>
       <div class="flex gap-1"><input id="term-year" class="field h-7 min-w-0 flex-1 px-1.5 text-xs" type="number" min="2000" max="2100" value="${d.year}" aria-label="Year" required>
       <button class="btn h-7 px-2 text-xs" type="submit">Add</button></div>
     </form>`;
-  const tl = $('#timeline');
-  tl.classList.toggle('grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))]', !state.editing);
-  tl.classList.toggle('grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))]', state.editing);
-  tl.innerHTML = pastCols.join('') + planCols.join('') + addCol;
+  $('#timeline').innerHTML = pastCols.join('') + planCols.join('') + addCol;
   $('#term-season').value = d.season;
 }
 
@@ -460,7 +458,9 @@ function renderResults() {
     : `<div class="panel px-4 py-6 text-center text-sm text-zinc-500">No declared programs yet. Choose your major from the menu, or add one from the list below.</div>`;
   renderSuggestions(declaredResults, courses);
 
-  let results = auditAll(school.programs.filter((p) => !state.declared.includes(p.id)), courses);
+  // Hide other degrees of a major you have already declared (BA vs BS of the same field cannot both be earned).
+  const declaredMajorNames = new Set(declaredPrograms.filter((p) => p.kind === 'major').map((p) => p.name));
+  let results = auditAll(school.programs.filter((p) => !state.declared.includes(p.id) && !(p.kind === 'major' && declaredMajorNames.has(p.name))), courses);
   if (state.kind !== 'all') results = results.filter((r) => r.program.kind === state.kind);
   if (state.query) {
     const q = state.query.toLowerCase();
