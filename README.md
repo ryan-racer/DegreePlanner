@@ -88,7 +88,15 @@ Read [docs/PROGRAM_FORMAT.md](docs/PROGRAM_FORMAT.md). In short:
   `js/schools/rice/index.js` (programs, optional crosslist/catalog/sample and
   transcript parser hints), then list it in `js/schools/index.js`.
 
-The Rice data was generated from the General Announcements at
-<https://ga.rice.edu/programs-study/departments-programs/> and the course
-schedule at <https://courses.rice.edu/>. The `tools/` scripts rebuild the
-crosslist, catalog, and per-department course data from scraped JSON.
+## Refreshing the Rice data
+
+Everything generated (catalog, cross-listings, course details, section times) comes from the General Announcements
+at <https://ga.rice.edu/> and the course schedule at <https://courses.rice.edu/>. To refresh for a new term:
+
+```bash
+tools/refresh-rice-data.sh /tmp/rice-crawl 202710 202720
+```
+
+It crawls into the work directory, regenerates the data modules, and runs the validator and smoke test. Program
+definition files under `js/schools/rice/programs/` are hand-authored and are not overwritten; the crawl leaves
+`raw/<slug>.json` in the work directory so catalog changes can be checked against them.
