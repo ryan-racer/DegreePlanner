@@ -22,7 +22,7 @@ const PALETTE = [
 ];
 
 let ctx; // { state, school, $, save, rerender, getCourses, getDeclaredResults }
-let ui = { query: '', fits: true, needed: false, hideTaken: true, dist: '' };
+let ui = { query: '', fits: true, needed: false, hideTaken: true, dist: '', earliest: 0, noFriday: false };
 
 /** Jump to a course's sections for the current term (used by the hover card's "Find sections"). */
 export function findSections(code) {
@@ -42,6 +42,8 @@ export function initSchedule(context) {
     if (t.id === 'sched-fits') { ui.fits = t.checked; renderCandidates(); }
     if (t.id === 'sched-needed') { ui.needed = t.checked; renderCandidates(); }
     if (t.id === 'sched-hide-taken') { ui.hideTaken = t.checked; renderCandidates(); }
+    if (t.id === 'sched-earliest') { ui.earliest = Number(t.value); renderCandidates(); }
+    if (t.id === 'sched-nofriday') { ui.noFriday = t.checked; renderCandidates(); }
     if (t.dataset.f === 'swap') { swapSection(Number(t.dataset.crn), Number(t.value)); }
   });
   root.addEventListener('input', (e) => { if (e.target.id === 'sched-search') { ui.query = e.target.value.trim().toLowerCase(); renderCandidates(); } });
@@ -220,7 +222,6 @@ async function renderCandidates() {
     for (const a of aliases) for (const p of reqByCode.get(a) || []) progs.add(p);
     for (const pt of patterns) if (aliases.some((a) => courseMatchesSpec({ aliases: [a] }, pt.spec)) && !aliases.some((a) => takenCodes.has(a))) progs.add(pt.program);
     for (const p of progs) tags.push({ kind: 'req', text: p.replace(/\s*\(.*\)$/, '') });
-    if (dist && s.dist && dist.need[s.dist] > 0) tags.push({ kind: 'dist', text: `D${s.dist === 'I' ? 1 : s.dist === 'II' ? 2 : 3} needed` });
     return tags;
   };
 
@@ -228,18 +229,20 @@ async function renderCandidates() {
   if (ui.hideTaken) list = list.filter((s) => !aliasesFor(s.code, ctx.school.crosslist).some((a) => takenCodes.has(a)));
   if (ui.fits) list = list.filter((s) => !selected.some((x) => conflicts(s, x)));
   if (ui.dist) list = list.filter((s) => s.dist === ui.dist);
+  if (ui.earliest) list = list.filter((s) => s.meetings.every((m) => m.start >= ui.earliest));
+  if (ui.noFriday) list = list.filter((s) => !s.meetings.some((m) => m.days.includes('F')));
   if (ui.query) { const q = ui.query.split(/\s+/); list = list.filter((s) => { const t = `${s.code} ${s.title} ${s.instr}`.toLowerCase(); return q.every((w) => t.includes(w)); }); }
-  const scored = list.map((s) => ({ s, tags: why(s) }));
-  if (ui.needed) list = scored.filter((x) => x.tags.length);
-  else list = scored;
-  list.sort((a, b) => (b.tags.filter((t) => t.kind === 'req').length - a.tags.filter((t) => t.kind === 'req').length) || (b.tags.length - a.tags.length) || a.s.code.localeCompare(b.s.code) || a.s.sec.localeCompare(b.s.sec));
+  const distNeed = (s) => (dist && s.dist && dist.need[s.dist] > 0 ? 1 : 0);
+  const scored = list.map((s) => ({ s, tags: why(s), dn: distNeed(s) }));
+  list = ui.needed ? scored.filter((x) => x.tags.length || x.dn) : scored;
+  list.sort((a, b) => (b.tags.length - a.tags.length) || (b.dn - a.dn) || a.s.code.localeCompare(b.s.code) || a.s.sec.localeCompare(b.s.sec));
   const shown = list.slice(0, 60);
   $('#sched-count').textContent = `${list.length} section${list.length === 1 ? '' : 's'}${list.length > 60 ? ', showing 60' : ''}`;
   $('#sched-candidates').innerHTML = shown.map(({ s, tags }) => `<div class="flex items-start gap-2 border-b border-zinc-100 py-1.5 text-xs last:border-0 dark:border-zinc-800/70">
       <button type="button" class="btn-icon mt-0.5 size-6 shrink-0 rounded" data-f="add" data-crn="${s.crn}" aria-label="Add ${esc(s.code)} ${esc(s.sec)}"><svg class="size-3.5"><use href="#i-plus"/></svg></button>
       <div class="min-w-0 flex-1">
         <div class="flex items-baseline gap-1.5"><span class="course-ref cursor-help font-mono text-[12px] font-medium" data-course="${esc(s.code)}" tabindex="0">${esc(s.code)}</span><span class="font-mono text-[10px] text-zinc-400">${esc(s.sec)}</span><span class="min-w-0 truncate text-zinc-600 dark:text-zinc-400">${esc(titleCase(s.title))}</span></div>
-        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500"><span class="font-mono">${esc(meetingText(s))}</span><span>${s.credits} hr</span>${s.dist ? `<span>D${s.dist === 'I' ? 1 : s.dist === 'II' ? 2 : 3}</span>` : ''}${s.instr ? `<span class="truncate">${esc(s.instr.split(' ').slice(0, 2).join(' '))}</span>` : ''}
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500"><span class="font-mono">${esc(meetingText(s))}</span><span>${s.credits} hr</span>${s.dist ? `<span class="${dist && dist.need[s.dist] > 0 ? 'rounded bg-amber-50 px-1 font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300' : ''}" title="${dist && dist.need[s.dist] > 0 ? 'You still need courses in this distribution group' : 'Distribution group'}">D${s.dist === 'I' ? 1 : s.dist === 'II' ? 2 : 3}${dist && dist.need[s.dist] > 0 ? ' needed' : ''}</span>` : ''}${s.instr ? `<span class="truncate">${esc(s.instr.split(' ').slice(0, 2).join(' '))}</span>` : ''}
           ${tags.map((t) => `<span class="rounded px-1 ${t.kind === 'req' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}">${esc(t.text)}</span>`).join('')}</div>
       </div></div>`).join('') || '<p class="py-3 text-xs text-zinc-500">No sections match. Loosen a filter or clear the search.</p>';
 }

@@ -132,7 +132,11 @@
               <label class="flex items-center gap-1.5"><input id="sched-needed" type="checkbox" class="size-3.5 accent-zinc-900 dark:accent-zinc-100"> Fills a requirement</label>
               <label class="flex items-center gap-1.5"><input id="sched-hide-taken" type="checkbox" class="size-3.5 accent-zinc-900 dark:accent-zinc-100" checked> Hide taken</label>
             </div>
-            <div class="flex items-center gap-1.5"><span class="text-[11px] text-zinc-500">Distribution</span><div id="sched-dist" class="flex gap-1"></div></div>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <div class="flex items-center gap-1.5"><span class="text-[11px] text-zinc-500">Distribution</span><div id="sched-dist" class="flex gap-1"></div></div>
+              <select id="sched-earliest" class="field h-7 px-1.5 text-[11px]" aria-label="Earliest start"><option value="0">Any start time</option><option value="540">Starts 9a or later</option><option value="600">Starts 10a or later</option><option value="660">Starts 11a or later</option></select>
+              <label class="flex items-center gap-1.5 text-[11px] text-zinc-600 dark:text-zinc-400"><input id="sched-nofriday" type="checkbox" class="size-3.5 accent-zinc-900 dark:accent-zinc-100"> No Fridays</label>
+            </div>
             <p id="sched-count" class="text-[11px] text-zinc-500"></p>
           </div>
           <div id="sched-candidates" class="min-h-0 flex-1 overflow-y-auto px-3"></div>
