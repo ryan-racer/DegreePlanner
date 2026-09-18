@@ -28,7 +28,7 @@ done < depts.txt
 grep -E '(-ba|-bs|-bs[a-z]+|-barch|-barch-direct-entry|-bmus|-minor|-ba-[a-z-]+concentration|-bs-[a-z-]+concentration)/$' programs.txt \
   | { grep -vE '(-ad|certificate|mba|macc|mfin|phd|-ms[a-z]*|mstat|mcs|mds|business-administration)/$' || true; } | sort -u > ugprograms.txt
 while read -r u; do
-  f="pages/$(basename "$u").html"; [ -s "$f" ] || curl -sL "$HOST$u" -o "$f"
+  f="pages/$(basename "$u").html"; [ -s "$f" ] || curl -sL --retry 3 -m 60 "$HOST$u" -o "$f" || echo "   (failed: $u)"
 done < ugprograms.txt
 echo "   $(ls pages | wc -l | tr -d ' ') program pages"
 
@@ -37,7 +37,7 @@ if [ "${PAGES_ONLY:-}" = "1" ]; then echo "PAGES_ONLY set: skipping course listi
 echo "== course listings"
 curl -sL "$GA/programs-study/courses/" | grep -o 'href="/programs-study/courses/[a-z0-9-]*/"' | sed 's/href="//;s/"$//' | sort -u > course_depts.txt
 while read -r d; do
-  f="courses/$(basename "$d").html"; [ -s "$f" ] || curl -sL "$HOST$d" -o "$f"
+  f="courses/$(basename "$d").html"; [ -s "$f" ] || curl -sL --retry 3 -m 60 "$HOST$d" -o "$f" || echo "   (failed: $d)"
 done < course_depts.txt
 echo "   $(ls courses | wc -l | tr -d ' ') subject pages"
 

@@ -2,8 +2,55 @@ import programs from './programs.bundle.js'; // generated from programs/*.js by 
 import crosslist from './crosslist.js';
 import catalog from './catalog.js';
 import sample from './sample.js';
+import { catalogYears, currentCatalogYear, overlays } from './catalog-years.js';
+import variants from './variants.bundle.js'; // exact per-year definitions, generated from variants/<year>/*.js
 import scheduleTerms from './schedule.js';
 import sectionTerms, { generated as sectionDataDate } from './section-terms.js';
+
+/** Resolve a requirement node by its audit path ("1.o0.2": index, any-option, index). */
+function nodeAt(requirements, path) {
+  let list = requirements, node = null;
+  for (const part of path.split('.')) {
+    if (part.startsWith('o')) { node = node?.options?.[Number(part.slice(1))]; }
+    else { node = list?.[Number(part)]; }
+    if (!node) return null;
+    list = node.requirements || null;
+  }
+  return node;
+}
+
+const yearCache = new Map();
+/**
+ * Programs as they stood in a given catalog year. Older years start from the current definitions and restore the
+ * course options that existed then; programs that did not exist that year are left out.
+ */
+function programsFor(year) {
+  if (!year || year === currentCatalogYear || !overlays[year]) return programs;
+  if (yearCache.has(year)) return yearCache.get(year);
+  const out = [];
+  for (const base of programs) {
+    const exact = variants[year]?.[base.id];
+    if (exact) { out.push({ ...exact, catalogNote: `Exact ${year} catalog requirements.` }); continue; }
+    const o = overlays[year][base.id];
+    if (!o) { out.push(base); continue; }
+    if (o.absent) continue;
+    const p = JSON.parse(JSON.stringify(base));
+    let restored = 0;
+    for (const [path, codes] of Object.entries(o.add || {})) {
+      const node = nodeAt(p.requirements, path);
+      if (node?.from) { node.from.push(...codes.filter((c) => !node.from.includes(c))); restored += codes.length; }
+    }
+    const bits = [];
+    if (restored) bits.push(`${restored} course option${restored === 1 ? '' : 's'} from the ${year} catalog restored`);
+    if (o.loose?.length) bits.push(`listed in ${year} but not matched to a requirement: ${o.loose.slice(0, 8).join(', ')}${o.loose.length > 8 ? '…' : ''}`);
+    if (o.structural) bits.push(`the ${year} catalog counted some sections differently, so check the numbers against that year's page`);
+    p.catalogNote = `Audited with the current definition adjusted for ${year}: ${bits.join('; ')}.`;
+    p.url = base.url.replace('https://ga.rice.edu/', `https://ga.rice.edu/archive/${year}/`);
+    out.push(p);
+  }
+  yearCache.set(year, out);
+  return out;
+}
 
 export default {
   id: 'rice',
@@ -11,6 +58,9 @@ export default {
   shortName: 'Rice',
   catalogYear: '2026–2027',
   catalogUrl: 'https://ga.rice.edu/',
+  catalogYears,
+  currentCatalogYear,
+  programsFor,
   defaultHours: 3,
   maxTermHours: 18, // most a student can take in a term without an overload approval
   // Hints for the transcript parser (see js/parser/transcript.js for defaults).

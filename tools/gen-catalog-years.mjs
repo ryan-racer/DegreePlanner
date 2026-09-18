@@ -1,0 +1,86 @@
+// Builds js/schools/rice/catalog-years.js from archived catalog extractions.
+// For each older catalog year it restores course options that existed then but are absent from the current program
+// definition, attaching each to the current node whose option list it most resembles. Programs whose "Select N"
+// wording changed are flagged as structurally different (that cannot be applied safely by machine).
+// Usage: node tools/gen-catalog-years.mjs <current-workdir> <year>=<workdir> [<year>=<workdir> ...]
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import school from '../js/schools/rice/index.js';
+
+const [currentDir, ...pairs] = process.argv.slice(2);
+const currentYear = (school.catalogYear || '').replace('–', '-');
+const alias = (c) => [c, ...(school.crosslist[c] || [])];
+
+/** Split a raw extraction into option groups: the codes under each header / comment row. */
+function groups(raw) {
+  const out = [];
+  for (const table of raw.tables) {
+    let g = null;
+    for (const r of table) {
+      if (r.type !== 'course' && r.type !== 'or') { g = { label: `${r.text} ${r.title}`.trim(), codes: [] }; out.push(g); continue; }
+      if (!r.codes?.length) { if (r.text) { g = { label: r.text, codes: [] }; out.push(g); } continue; }
+      if (!g) { g = { label: '', codes: [] }; out.push(g); }
+      g.codes.push(r.codes[0]);
+    }
+  }
+  return out.filter((x) => x.codes.length);
+}
+const selects = (raw) => raw.tables.flat().map((r) => `${r.text} ${r.title}`).filter((t) => /select\s+\d+/i.test(t)).map((t) => t.replace(/\[fn[^\]]*\]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()).sort();
+
+/** Every choose/hours node of a program with its path and exact codes. */
+function listNodes(nodes, prefix = '', out = []) {
+  (nodes || []).forEach((n, i) => {
+    const path = prefix === '' ? String(i) : `${prefix}.${i}`;
+    if (n.type === 'choose' || n.type === 'hours') out.push({ path, codes: new Set((n.from || []).filter((s) => typeof s === 'string').flatMap(alias)), node: n });
+    if (n.type === 'group') listNodes(n.requirements, path, out);
+    if (n.type === 'any') n.options.forEach((o, j) => listNodes([o], `${path}.o${j}`, out).forEach(() => {}));
+  });
+  return out;
+}
+// `any` options need their own path scheme: path.oJ is the option node itself.
+function listAll(nodes, prefix = '', out = []) {
+  (nodes || []).forEach((n, i) => walk(n, prefix === '' ? String(i) : `${prefix}.${i}`, out));
+  return out;
+}
+function walk(n, path, out) {
+  if (n.type === 'choose' || n.type === 'hours') out.push({ path, codes: new Set((n.from || []).filter((s) => typeof s === 'string').flatMap(alias)) });
+  if (n.type === 'group') listAll(n.requirements, path, out);
+  if (n.type === 'any') n.options.forEach((o, j) => walk(o, `${path}.o${j}`, out));
+}
+
+const years = {};
+for (const pair of pairs) {
+  const [year, dir] = pair.split('=');
+  const overlay = {}; let restored = 0, structural = 0, unplaced = 0, absent = 0;
+  for (const p of school.programs) {
+    const oldFile = `${dir}/raw/${p.id}.json`, curFile = `${currentDir}/raw/${p.id}.json`;
+    if (!existsSync(oldFile)) { overlay[p.id] = { absent: true }; absent++; continue; }
+    if (!existsSync(curFile)) continue;
+    const old = JSON.parse(readFileSync(oldFile, 'utf8')), cur = JSON.parse(readFileSync(curFile, 'utf8'));
+    const curCodes = new Set(cur.tables.flat().flatMap((r) => r.codes || []).flatMap(alias));
+    const programCodes = new Set([...JSON.stringify(p.requirements).matchAll(/\b([A-Z]{2,5}) (\d{3}[A-Z]?)\b/g)].map((m) => `${m[1]} ${m[2]}`).flatMap(alias));
+    const nodes = listAll(p.requirements);
+    const add = {}; const loose = [];
+    for (const g of groups(old)) {
+      const legacy = g.codes.filter((c) => !alias(c).some((a) => curCodes.has(a) || programCodes.has(a)));
+      if (!legacy.length) continue;
+      const rest = g.codes.filter((c) => !legacy.includes(c));
+      let best = null;
+      for (const n of nodes) { const hit = rest.filter((c) => n.codes.has(c)).length; if (hit >= 2 && (!best || hit > best.hit)) best = { n, hit }; }
+      if (best) { (add[best.n.path] = add[best.n.path] || []).push(...legacy); restored += legacy.length; }
+      else { loose.push(...legacy); unplaced += legacy.length; }
+    }
+    const changedStructure = JSON.stringify(selects(old)) !== JSON.stringify(selects(cur));
+    if (changedStructure) structural++;
+    if (Object.keys(add).length || loose.length || changedStructure) overlay[p.id] = { ...(Object.keys(add).length ? { add } : {}), ...(loose.length ? { loose } : {}), ...(changedStructure ? { structural: true } : {}) };
+  }
+  years[year] = overlay;
+  console.log(`${year}: restored ${restored} legacy options, ${unplaced} could not be placed, ${structural} programs changed structure, ${absent} did not exist`);
+}
+const allYears = [...Object.keys(years), currentYear].sort();
+writeFileSync('js/schools/rice/catalog-years.js',
+  `// Generated by tools/gen-catalog-years.mjs from archived General Announcements. Do not edit by hand.\n` +
+  `// For each older catalog year: per program, course options to restore (by requirement node path), options that\n` +
+  `// could not be matched to a node (loose), whether the "Select N" structure differed (structural), or absent.\n` +
+  `export const catalogYears = ${JSON.stringify(allYears)};\nexport const currentCatalogYear = ${JSON.stringify(currentYear)};\n` +
+  `export const overlays = ${JSON.stringify(years)};\n`);
+console.log(`wrote js/schools/rice/catalog-years.js for ${allYears.join(', ')}`);

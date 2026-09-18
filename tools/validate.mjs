@@ -43,7 +43,11 @@ function checkNode(f, n, path) {
 }
 
 const args = process.argv.slice(2);
-const files = args.length ? args : readdirSync('js/schools/rice/programs').filter((f) => f.endsWith('.js') && f !== 'index.js').map((f) => `js/schools/rice/programs/${f}`);
+import { existsSync } from 'node:fs';
+const base = readdirSync('js/schools/rice/programs').filter((f) => f.endsWith('.js') && f !== 'index.js').map((f) => `js/schools/rice/programs/${f}`);
+const vroot = 'js/schools/rice/variants';
+const variantFiles = existsSync(vroot) ? readdirSync(vroot).filter((d) => /^\d{4}-\d{4}$/.test(d)).flatMap((y) => readdirSync(`${vroot}/${y}`).filter((f) => f.endsWith('.js')).map((f) => `${vroot}/${y}/${f}`)) : [];
+const files = args.length ? args : [...base, ...variantFiles];
 const ids = new Set();
 for (const f of files) {
   let mod;
@@ -53,7 +57,8 @@ for (const f of files) {
   if (!['major', 'minor', 'certificate'].includes(mod.kind)) err(f, `kind must be major|minor|certificate`);
   if (mod.hours != null && !(mod.hours > 0)) err(f, 'hours must be a positive number');
   if (mod.notes && !Array.isArray(mod.notes)) err(f, 'notes must be an array of strings');
-  if (ids.has(mod.id)) err(f, `duplicate id ${mod.id}`); ids.add(mod.id);
+  const idKey = f.includes('/variants/') ? `${f.split('/variants/')[1].split('/')[0]}:${mod.id}` : mod.id;
+  if (ids.has(idKey)) err(f, `duplicate id ${mod.id}`); ids.add(idKey);
   if (!Array.isArray(mod.requirements) || !mod.requirements.length) err(f, 'requirements[] is required'); else mod.requirements.forEach((n, i) => checkNode(f, n, `requirements[${i}]`));
   if (mod.degreeHours != null && !(mod.degreeHours >= 60)) err(f, 'degreeHours must be a number >= 60');
   if (mod.constraints != null) {
