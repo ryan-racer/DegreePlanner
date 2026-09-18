@@ -18,6 +18,11 @@ python3 serve.py 8080
 Then open <http://localhost:8080/>. Add `--lan` to let other devices on your network connect via your machine's IP address.
 Deploy the folder as-is to GitHub Pages, Netlify, Cloudflare Pages, etc.
 
+## Offline
+
+`sw.js` is a small service worker: every request goes to the network first and falls back to the cache, so the app is
+always current when online and still opens offline once it has been visited. It registers only over http(s).
+
 ## Styling
 
 The UI uses Tailwind CSS v4, compiled ahead of time so the deployed site stays static:

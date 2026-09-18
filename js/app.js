@@ -581,6 +581,11 @@ function initTabs() {
 
 function renderAll() { renderTimeline(); renderResults(); renderTabs(); if (state.courses.length && state.tab === 'schedule') renderSchedule(); }
 
+// ---------- offline ----------
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ }));
+}
+
 // ---------- boot ----------
 initChrome();
 initCourseCards(school);
