@@ -292,7 +292,7 @@ async function renderCandidates() {
   // Distribution summary chips
   $('#sched-dist').innerHTML = dist ? dist.cfg.groups.map((g) => {
     const h = dist.have[g], n = dist.need[g];
-    return `<button type="button" data-f="dist" data-g="${g}" class="rounded-md border px-2 py-1 text-[11px] ${ui.dist === g ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900' : 'border-zinc-300 dark:border-zinc-700'}" title="${esc(h.codes.join(', ') || 'none yet')}">D${g === 'I' ? 1 : g === 'II' ? 2 : 3} <span class="${n ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'} ${ui.dist === g ? '!text-inherit' : ''}">${n ? `${h.count}/${dist.cfg.coursesPerGroup}` : '✓'}</span></button>`;
+    return `<button type="button" data-f="dist" data-g="${g}" class="rounded-md border px-2 py-1 text-[11px] ${ui.dist === g ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900' : 'border-zinc-300 dark:border-zinc-700'}" title="${esc((h.codes.join(', ') || 'none yet') + (h.detail ? ' — ' + h.detail : ''))}">D${g === 'I' ? 1 : g === 'II' ? 2 : 3} <span class="${n ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'} ${ui.dist === g ? '!text-inherit' : ''}">${!n ? '✓' : h.detail ? '+1 dept' : `${h.count}/${dist.cfg.coursesPerGroup}`}</span></button>`;
   }).join('') : '';
 
   const why = (s) => {
