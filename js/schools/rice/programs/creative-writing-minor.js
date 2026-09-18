@@ -7,9 +7,13 @@ export default {
   url: 'https://ga.rice.edu/programs-study/departments-programs/humanities/creative-writing/creative-writing-minor/',
   hours: 18,
   notes: [
-    'Of the 6 courses: at least 3 creative writing courses must be at the 300 level or above, at least 1 must be at the 400 level, and at least 1 must be in a second genre or form (poetry, nonfiction, screenwriting, translation, publishing, etc.).',
+    'Of the 6 courses, at least 3 creative writing courses must be at the 300 level or above and at least 1 must be in a second genre or form (poetry, nonfiction, screenwriting, translation, publishing, etc.).',
     'Additional Core Requirement courses may count as electives, but no course counts toward both.',
     'At most 1 elective (3 credit hours) may be from outside ENGL; other outside courses may be approved by an advisor.',
+  ],
+  constraints: [
+    { type: 'atLeast', count: 3, from: [{ dept: '*', min: 300 }], label: 'At least 3 courses at the 300 level or above' },
+    { type: 'atLeast', count: 1, from: [{ dept: '*', min: 400, max: 499 }], label: 'At least 1 course at the 400 level' },
   ],
   requirements: [
     { type: 'choose', name: 'Core Requirement', count: 1, from: ['ENGL 113', 'ENGL 114', 'ENGL 201', 'ENGL 205', 'ENGL 301', 'ENGL 304', 'ENGL 305'] },

@@ -9,7 +9,10 @@ export default {
   notes: [
     'All other core courses must be completed before enrolling in the capstone (GLHT 451, GLHT 452); electives may be taken concurrently.',
     'A core selection course (e.g. ANTH 381, SOCI 345) not used for the core may count as an elective instead.',
-    'At least 4 courses (12 hours) at the 300 level or above. At most 2 courses from study abroad or transfer credit. Minimum minor GPA of 2.00.',
+    'At most 2 courses from study abroad or transfer credit. Minimum minor GPA of 2.00.',
+  ],
+  constraints: [
+    { type: 'atLeast', count: 4, from: [{ dept: '*', min: 300 }], label: 'At least 4 courses at the 300 level or above' },
   ],
   requirements: [
     { type: 'group', name: 'Core Requirements', requirements: [

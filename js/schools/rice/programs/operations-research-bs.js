@@ -22,6 +22,9 @@ export default {
     'Electives may not include CMOR 494, CMOR 495 or independent study (CMOR 490/491).',
     'Some listed electives are graduate (500-level and above) courses requiring special registration.',
   ],
+  constraints: [
+    { type: 'atLeast', count: 3, from: [{ dept: 'CMOR' }], among: ['3'], label: 'At least 3 CMOR courses in the Area of Specialization' },
+  ],
   requirements: [
     { type: 'group', name: 'Introductory Requirements', requirements: [
       { type: 'all', name: 'Computation and Calculus', items: ['COMP 140', 'COMP 182', 'COMP 215', ['MATH 101', 'MATH 105'], ['MATH 102', 'MATH 106']] },

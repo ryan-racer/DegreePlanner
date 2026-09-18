@@ -1,0 +1,25 @@
+name: Deploy to GitHub Pages
+# Static site, no build needed at deploy time (css/app.css and the data are committed).
+# Off by default: set the repository variable ENABLE_PAGES to "true" after turning on Pages
+# (Settings -> Pages -> Source: GitHub Actions). Private repositories need a paid plan for Pages.
+on:
+  push: { branches: [main] }
+  workflow_dispatch:
+permissions: { contents: read, pages: write, id-token: write }
+concurrency: { group: pages, cancel-in-progress: true }
+jobs:
+  deploy:
+    if: vars.ENABLE_PAGES == 'true'
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: '${{ steps.deployment.outputs.page_url }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble the site
+        run: |
+          mkdir _site
+          cp -r index.html manifest.json icon.svg sw.js css js data docs _site/
+          rm -f _site/css/input.css
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+      - id: deployment
+        uses: actions/deploy-pages@v4

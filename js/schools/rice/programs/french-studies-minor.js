@@ -7,10 +7,13 @@ export default {
   url: 'https://ga.rice.edu/programs-study/departments-programs/humanities/french-studies/french-studies-minor/',
   hours: 18,
   notes: [
-    'At most 2 elective courses (6 credit hours) may be at the 200 level.',
-    'At most 1 course (3 credit hours) may be a FREN course taught in English (FREN 250, 308, 324, 325, 337, 355, 402, 478); courses taught in English outside FREN do not count.',
+    'Courses taught in English outside FREN do not count.',
     'Core courses not used for the Core Requirements may count as electives; no course counts toward more than one requirement.',
     'Rice in France participants may count FREN 306 as an elective, allowing both FREN 300 and FREN 306 to count.',
+  ],
+  constraints: [
+    { type: 'atMost', count: 2, from: [{ dept: '*', min: 200, max: 299 }], among: ['1'], label: 'At most 2 electives at the 200 level' },
+    { type: 'atMost', count: 1, from: ['FREN 250', 'FREN 308', 'FREN 324', 'FREN 325', 'FREN 337', 'FREN 355', 'FREN 402', 'FREN 478'], label: 'At most 1 FREN course taught in English (FREN 250, 308, 324, 325, 337, 355, 402, 478)' },
   ],
   requirements: [
     { type: 'group', name: 'Core Requirements', requirements: [

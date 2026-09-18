@@ -39,6 +39,7 @@ export function programCard(result, { expanded, declared, school, variant = 'row
     </button>
     ${expanded ? `<div class="border-t border-zinc-200 px-4 pb-5 pt-3 dark:border-zinc-800">
       <div class="mb-2 flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-xs">
+        ${declared && !done ? '<span class="mr-auto text-zinc-500">Department approved a different course? Use <span class="font-medium text-blue-700 dark:text-blue-400">Substitute</span> on any open slot.</span>' : ''}
         <a class="inline-flex items-center gap-1 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" href="${esc(p.url)}" target="_blank" rel="noopener">Catalog page ${icon('i-external', 'size-3')}</a>
         <a class="font-medium text-blue-700 hover:underline dark:text-blue-400" href="#" data-action="${declared ? 'undeclare' : 'declare'}" data-id="${esc(p.id)}">${declared ? 'Remove from my programs' : 'Add to my programs'}</a>
       </div>

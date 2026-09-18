@@ -7,8 +7,11 @@ export default {
   url: 'https://ga.rice.edu/programs-study/departments-programs/engineering/computer-science/computer-science-bscs/',
   hours: 68,
   notes: [
-    'Minimum major GPA of 2.00. At least 13 upper-level courses (40 hours) are required for the degree.',
+    'Minimum major GPA of 2.00.',
     'Students completing the BSCS cannot also receive the BA in Computer Science.',
+  ],
+  constraints: [
+    { type: 'atLeast', count: 13, from: [{ dept: '*', min: 300 }], label: 'At least 13 upper-level courses (300 level or above)' },
   ],
   requirements: [
     { type: 'group', name: 'Core Requirements', requirements: [

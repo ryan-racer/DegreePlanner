@@ -7,7 +7,6 @@ export default {
   url: 'https://ga.rice.edu/programs-study/departments-programs/humanities/spanish-and-portuguese/spanish-and-portuguese-minor/',
   hours: 18,
   notes: [
-    'At most 1 course (3 credit hours) at the 200 level may count toward the minor.',
     'Any 200- or 300-level SPAN/PORT course may be replaced by a 400-level SPAN/PORT course.',
   ],
   requirements: [
@@ -16,5 +15,8 @@ export default {
       { type: 'choose', name: 'SPAN or PORT courses at the 300 level or above', count: 3, from: [{ dept: ['SPAN', 'PORT'], min: 300 }] },
     ]},
     { type: 'choose', name: 'Elective Requirements', count: 2, from: [{ dept: ['SPAN', 'PORT'], min: 400 }], note: 'SPAN or PORT courses at the 400 level.' },
+  ],
+  constraints: [
+    { type: 'atMost', count: 1, from: [{ dept: '*', max: 299 }], label: 'At most 1 course at the 200 level' },
   ],
 };

@@ -10,7 +10,10 @@ export default {
     'MDHM 359 may satisfy either the Social, Political, and Ethical Contexts core or the Elective Requirement, but not both.',
     'STAT 180 (AP/other statistics credit) is not eligible for the minor.',
     'Other 300+ courses may fulfill the Elective Requirement with approval of the Minor Advisor.',
-    'At least 5 courses (15-19 hours) at the 300 level or above. Minimum minor GPA of 2.00.',
+    'Minimum minor GPA of 2.00.',
+  ],
+  constraints: [
+    { type: 'atLeast', count: 5, from: [{ dept: '*', min: 300 }], label: 'At least 5 courses at the 300 level or above' },
   ],
   requirements: [
     { type: 'course', name: 'Prerequisite', options: ['DSCI 101', 'COMP 140'] },

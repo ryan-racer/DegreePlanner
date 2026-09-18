@@ -17,6 +17,7 @@ export default {
     'Students in Areas I or II take CEVE 316 as the core lab; students in Areas III or IV take CEVE 472.',
     'STAT 310 may be replaced by any STAT course at the 300 level or above except STAT 305.',
     'PHYS 141 and PHYS 142 credit is not eligible for the major.',
+    'Free electives fill out the 125 degree hours (no set number is required by the major). Suggested electives: ANTH 320, CEVE 417, CEVE 454, CEVE 477, CEVE 499, CHEM 211 and CHEM 213, CMOR 360, CMOR 422, CMOR 438, COMP 140, COMP 330, COMP 440, ECON 100, ECON 445, ENST 210, EEPS 436, EEPS 440, MECH 343, MECH 412, RCEL 450.',
   ],
   requirements: [
     { type: 'group', name: 'General Math and Science Requirements', requirements: [

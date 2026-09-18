@@ -9,7 +9,7 @@ export default {
   notes: [
     'Individual instrumental/vocal study and ensemble are repeated each semester: at least 4 semesters of each.',
     'Continuing private lessons beyond the required 4 semesters requires permission from the dean of the Shepherd School of Music.',
-    'At least 14 courses (30 hours) at the 300 level or above. Minimum major GPA of 2.00.',
+    'Minimum major GPA of 2.00.',
   ],
   requirements: [
     { type: 'group', name: 'Music Theory', requirements: [
@@ -25,5 +25,8 @@ export default {
       ], note: 'Minimum of 4 semesters of 300- or 400-level individual study.' },
       { type: 'choose', name: 'Ensemble', count: 4, from: ['MUSI 335', 'MUSI 337'], note: 'Minimum of 4 semesters.' },
     ]},
+  ],
+  constraints: [
+    { type: 'atLeast', count: 14, from: [{ dept: '*', min: 300 }], label: 'At least 14 courses (30 hours) at the 300 level or above' },
   ],
 };

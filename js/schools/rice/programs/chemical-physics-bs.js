@@ -9,7 +9,6 @@ export default {
   notes: [
     'Credit for PHYS 125, PHYS 126, PHYS 141, or PHYS 142 is not eligible for the Chemical Physics major.',
     'Students without credit for MATH 101/102 must take them or substitute more advanced MATH or CMOR coursework with program approval.',
-    'At most 2 credit hours of CHEM 491 or PHYS 461 may count toward the Advanced Laboratories requirement.',
   ],
   requirements: [
     {
@@ -102,5 +101,8 @@ export default {
         },
       ],
     },
+  ],
+  constraints: [
+    { type: 'atMost', hours: 2, from: ['CHEM 491', 'PHYS 461'], among: ['1.1'], label: 'At most 2 credit hours of CHEM 491 or PHYS 461 toward Advanced Laboratories' },
   ],
 };

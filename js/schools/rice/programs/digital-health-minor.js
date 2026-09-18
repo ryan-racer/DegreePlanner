@@ -8,7 +8,10 @@ export default {
   hours: 18,
   notes: [
     'A course used for a Core Requirement may not also fulfill an Elective Requirement.',
-    'At least 3 courses (9 hours) at the 300 level or above. At most 2 courses from study abroad or transfer credit. Minimum minor GPA of 2.00.',
+    'At most 2 courses from study abroad or transfer credit. Minimum minor GPA of 2.00.',
+  ],
+  constraints: [
+    { type: 'atLeast', count: 3, from: [{ dept: '*', min: 300 }], label: 'At least 3 courses at the 300 level or above' },
   ],
   requirements: [
     { type: 'group', name: 'Core Requirements', requirements: [

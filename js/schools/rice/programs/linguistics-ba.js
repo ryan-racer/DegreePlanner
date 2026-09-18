@@ -9,7 +9,9 @@ export default {
   notes: [
     'Language requirement: both courses must be in the same language. European languages (FREN, GERM, GREE, ITAL, LATI, PORT, SPAN) at the 200 level or above; non-European languages (ARAB, CHIN, HEBR, JAPA, KORE, TIBT) at the 100 level or above.',
     'One additional Research Seminar beyond LING 499 may be used as an elective.',
-    'At least 9 courses (27 credit hours) in linguistics must be at the 300 level or above, including the 5 core courses.',
+  ],
+  constraints: [
+    { type: 'atLeast', count: 9, from: [{ dept: 'LING', min: 300 }], label: 'At least 9 LING courses at the 300 level or above (including the 5 core courses)' },
   ],
   requirements: [
     { type: 'course', name: 'Required Prerequisite', options: ['LING 200', 'ANTH 200'] },

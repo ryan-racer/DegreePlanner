@@ -1,4 +1,4 @@
-import programs from './programs/index.js';
+import programs from './programs.bundle.js'; // generated from programs/*.js by tools/gen-index.mjs
 import crosslist from './crosslist.js';
 import catalog from './catalog.js';
 import sample from './sample.js';

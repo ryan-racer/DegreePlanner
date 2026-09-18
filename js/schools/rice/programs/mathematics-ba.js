@@ -9,7 +9,7 @@ export default {
   notes: [
     'A higher-level MATH course (200+, at least 3 hours) may substitute for MATH 101 and/or MATH 102.',
     'MATH 221 satisfies the differential equations slot only when paired with MATH 222.',
-    'At most 3 credit hours from MATH 479 and MATH 490-499 count toward the major; each course number may count only once.',
+    'Each course number may count only once.',
     'Double majors may substitute approved mathematics-related courses for up to 3 of the 8 electives.',
   ],
   requirements: [
@@ -21,5 +21,8 @@ export default {
     ]},
     { type: 'choose', name: 'Elective Requirements', count: 8, from: [{ dept: 'MATH', min: 300 }],
       note: 'MATH courses at the 300 level or above.' },
+  ],
+  constraints: [
+    { type: 'atMost', hours: 3, from: ['MATH 479', { dept: 'MATH', min: 490, max: 499 }], label: 'At most 3 credit hours from MATH 479 and MATH 490-499' },
   ],
 };

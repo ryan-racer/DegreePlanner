@@ -9,7 +9,10 @@ export default {
   notes: [
     'STAT 499 must be the CoFES Quantitative Finance section.',
     'Electives: 3 courses from Groups I and II with at least 1 from each group.',
-    'At least 5 courses (16 hours) at the 300 level or above. Minimum minor GPA of 2.00.',
+    'Minimum minor GPA of 2.00.',
+  ],
+  constraints: [
+    { type: 'atLeast', count: 5, from: [{ dept: '*', min: 300 }], label: 'At least 5 courses at the 300 level or above' },
   ],
   requirements: [
     { type: 'group', name: 'Core Requirements', requirements: [

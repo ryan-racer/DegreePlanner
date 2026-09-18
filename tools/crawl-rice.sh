@@ -5,7 +5,7 @@
 #   sched/     one HTML page per subject × term from the course schedule (courses.rice.edu)
 # Usage: tools/crawl-rice.sh <workdir> [terms...]   (terms as Banner codes, e.g. 202710 = Fall 2026)
 # Season prediction needs several years of history, so the default covers 13 terms. For an archived catalog year set
-# GA_PREFIX=/archive/2024-2025 (program pages only matter then).
+# GA_PREFIX=/archive/2024-2025 PAGES_ONLY=1 (only the program pages matter for an old catalog year).
 set -euo pipefail
 WORK=${1:?workdir}; shift || true
 TERMS=${*:-"202310 202320 202330 202410 202420 202430 202510 202520 202530 202610 202620 202630 202710"}
@@ -31,6 +31,8 @@ while read -r u; do
   f="pages/$(basename "$u").html"; [ -s "$f" ] || curl -sL "$HOST$u" -o "$f"
 done < ugprograms.txt
 echo "   $(ls pages | wc -l | tr -d ' ') program pages"
+
+if [ "${PAGES_ONLY:-}" = "1" ]; then echo "PAGES_ONLY set: skipping course listings and schedule"; exit 0; fi
 
 echo "== course listings"
 curl -sL "$GA/programs-study/courses/" | grep -o 'href="/programs-study/courses/[a-z0-9-]*/"' | sed 's/href="//;s/"$//' | sort -u > course_depts.txt

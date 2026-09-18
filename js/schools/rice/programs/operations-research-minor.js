@@ -9,7 +9,7 @@ export default {
   notes: [
     'Electives must be taken for at least 3 credit hours each.',
     'Graduate-level (500+) electives require special registration with instructor permission.',
-    'All 6 courses must be at the 300 level or above. At most 2 courses from study abroad or transfer credit.',
+    'At most 2 courses from study abroad or transfer credit.',
   ],
   requirements: [
     { type: 'group', name: 'Core Requirements', requirements: [
@@ -25,5 +25,8 @@ export default {
       atLeast: [{ count: 2, from: [{ dept: 'CMOR' }], label: 'CMOR elective (at least 2 of the 3)' }],
       exclusive: [['CMOR 438', 'COMP 341', 'COMP 441', 'DSCI 303', 'ELEC 378', 'ELEC 478', 'STAT 413'], ['CMOR 461', 'CMOR 462']],
       note: 'Department-approved electives. At least 2 must be CMOR courses; only one machine-learning course and only one of CMOR 461 / 462 may count.' },
+  ],
+  constraints: [
+    { type: 'atLeast', count: 6, from: [{ dept: '*', min: 300 }], label: 'All 6 courses at the 300 level or above' },
   ],
 };

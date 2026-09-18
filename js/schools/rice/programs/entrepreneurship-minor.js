@@ -7,7 +7,10 @@ export default {
   url: 'https://ga.rice.edu/programs-study/departments-programs/business/entrepreneurship/entrepreneurship-minor/',
   hours: 18,
   notes: [
-    'At least 2 courses (6 hours) at the 300 level or above. At most 2 courses from study abroad or transfer credit. Minimum minor GPA of 2.00.',
+    'At most 2 courses from study abroad or transfer credit. Minimum minor GPA of 2.00.',
+  ],
+  constraints: [
+    { type: 'atLeast', count: 2, from: [{ dept: '*', min: 300 }], label: 'At least 2 courses at the 300 level or above' },
   ],
   requirements: [
     { type: 'all', name: 'Core Requirements', items: ['ENTR 220', 'ENTR 361', 'ENTR 369', 'ENTR 463'] },

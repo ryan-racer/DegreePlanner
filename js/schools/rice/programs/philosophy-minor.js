@@ -6,7 +6,7 @@ export default {
   school: 'Humanities and Arts',
   url: 'https://ga.rice.edu/programs-study/departments-programs/humanities/philosophy/philosophy-minor/',
   hours: 18,
-  notes: ['At least 3 of the 6 courses (9 credit hours) must be at the 300 level or above.'],
+  notes: [],
   requirements: [
     { type: 'course', name: 'Core Requirement (History of Philosophy)', options: ['PHIL 281', 'PHIL 283'] },
     { type: 'group', name: 'Areas of Study Requirements', requirements: [
@@ -20,5 +20,8 @@ export default {
       ]},
     ]},
     { type: 'choose', name: 'Elective Requirements', count: 3, from: [{ dept: 'PHIL' }], note: 'Departmental (PHIL) course offerings.' },
+  ],
+  constraints: [
+    { type: 'atLeast', count: 3, from: [{ dept: '*', min: 300 }], label: 'At least 3 of the 6 courses at the 300 level or above' },
   ],
 };

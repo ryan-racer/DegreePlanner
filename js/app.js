@@ -10,6 +10,7 @@ import { initSchedule, render as renderSchedule, findSections, distributionSumma
 import { autoPlan, seasonPattern, inferGraduation, upcomingTerms } from './engine/autoplan.js';
 import { courseDetails } from './data/courseinfo.js';
 import { auditDegree } from './engine/degree.js';
+import { suggestForPlaceholder } from './ui/placeholder.js';
 
 const $ = (sel) => document.querySelector(sel);
 const PAGE = 15;
@@ -48,6 +49,34 @@ function load() {
     if (d) { state.courses = d.courses || []; state.declared = d.declared || []; state.includeInProgress = d.includeInProgress !== false; state.includePlanned = d.includePlanned !== false; state.plan = Array.isArray(d.plan) ? d.plan : []; state.schedule = d.schedule && typeof d.schedule === 'object' ? d.schedule : {}; state.scheduleTerm = d.scheduleTerm || ''; state.overrides = d.overrides && typeof d.overrides === 'object' ? d.overrides : {}; state.scheduleHidden = d.scheduleHidden && typeof d.scheduleHidden === 'object' ? d.scheduleHidden : {}; state.autoTarget = d.autoTarget || ''; }
     state.expanded = new Set(state.declared);
   } catch { /* ignore */ }
+}
+
+// ---------- undo ----------
+const UNDO_KEYS = ['courses', 'declared', 'plan', 'schedule', 'overrides', 'scheduleHidden'];
+let undoTimer, undoSnapshot = null;
+/** Run a destructive change with a one-step undo offered in a toast. */
+function undoable(label, fn) {
+  undoSnapshot = JSON.stringify(Object.fromEntries(UNDO_KEYS.map((k) => [k, state[k]])));
+  fn();
+  let toast = $('#undo-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'undo-toast';
+    toast.setAttribute('role', 'status');
+    toast.className = 'fixed bottom-4 left-1/2 z-50 hidden -translate-x-1/2 items-center gap-3 rounded-lg bg-zinc-900 px-3.5 py-2 text-sm text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900';
+    document.body.appendChild(toast);
+    toast.addEventListener('click', (e) => {
+      if (!e.target.closest('[data-undo]') || !undoSnapshot) return;
+      Object.assign(state, JSON.parse(undoSnapshot)); undoSnapshot = null;
+      state.expanded = new Set([...state.expanded, ...state.declared]);
+      toast.classList.add('hidden'); toast.classList.remove('flex');
+      save(); renderAll();
+    });
+  }
+  toast.innerHTML = `<span>${esc(label)}</span><button type="button" data-undo class="font-semibold underline underline-offset-2">Undo</button>`;
+  toast.classList.remove('hidden'); toast.classList.add('flex');
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(() => { toast.classList.add('hidden'); toast.classList.remove('flex'); }, 9000);
 }
 
 // ---------- chrome ----------
@@ -209,7 +238,7 @@ function initImport() {
   document.addEventListener('dragover', (e) => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault(); });
   const hide = () => { depth = 0; overlay.classList.add('hidden'); overlay.classList.remove('flex'); dz.classList.remove('over'); };
   document.addEventListener('dragleave', () => { if (--depth <= 0) hide(); });
-  document.addEventListener('drop', (e) => { if (!e.dataTransfer?.files?.length) return; e.preventDefault(); hide(); handleFile(e.dataTransfer.files[0]); });
+  document.addEventListener('drop', (e) => { if (!e.dataTransfer?.files?.length) { hide(); return; } e.preventDefault(); hide(); handleFile(e.dataTransfer.files[0]); });
 
   $('#paste-toggle').addEventListener('click', () => { $('#paste-box').hidden = false; $('#paste-text').focus(); });
   $('#paste-cancel').addEventListener('click', () => { $('#paste-box').hidden = true; });
@@ -230,10 +259,7 @@ function initImport() {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
-  $('#reset-btn').addEventListener('click', () => {
-    if (!confirm('Reset DegreePlanner? This removes the imported transcript, your declared programs, and your plan from this browser.')) return;
-    resetAll();
-  });
+  $('#reset-btn').addEventListener('click', () => undoable('Everything was cleared.', resetAll));
   $('#include-ip').addEventListener('change', (e) => { state.includeInProgress = e.target.checked; save(); renderAll(); });
   $('#include-planned').addEventListener('change', (e) => { state.includePlanned = e.target.checked; save(); renderAll(); });
   $('#edit-btn').addEventListener('click', () => { state.editing = !state.editing; renderTimeline(); });
@@ -303,15 +329,15 @@ function prepared() {
 
 function chip(c, { index, planned, termIndex, idx }) {
   if (planned && !c.code) {
-    return `<div class="flex h-6 items-center gap-1.5 rounded px-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800/70" data-planned="${termIndex}" data-idx="${idx}" data-code="" title="${esc(c.why || 'Placeholder for a course you choose')}">
-      <span class="min-w-0 flex-1 truncate italic text-sky-700/80 dark:text-sky-300/80">${esc(c.label || 'Elective')}<span class="ml-1 not-italic text-[11px] text-zinc-500">${hoursOf(c)}</span></span>
+    return `<div class="flex h-6 items-center gap-1.5 rounded px-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800/70" draggable="true" data-planned="${termIndex}" data-idx="${idx}" data-code="" title="${esc(c.why || 'Placeholder for a course you choose')}">
+      <button type="button" data-f="suggest" class="min-w-0 flex-1 truncate text-left italic text-sky-700/80 hover:underline dark:text-sky-300/80" ${c.kind && c.kind !== 'free' ? '' : 'disabled'}>${esc(c.label || 'Elective')}<span class="ml-1 not-italic text-[11px] text-zinc-500">${hoursOf(c)}</span></button>
       <button type="button" class="btn-icon -my-1 size-6 rounded" data-f="remove" aria-label="Remove ${esc(c.label || 'placeholder')}"><svg class="size-3"><use href="#i-x"/></svg></button></div>`;
   }
   const title = c.why ? `${titleCase(c.title || school.catalog?.[c.code]?.title || '')} — ${c.why}` : titleCase(c.title || school.catalog?.[c.code]?.title || '');
   const badge = planned ? '' : c.status === 'in-progress' ? 'IP' : c.grade || (c.source === 'transfer' ? 'TR' : '');
   const editing = state.editing || planned;
   const h = hoursOf(c);
-  return `<div class="flex h-6 items-center gap-1.5 rounded px-1 text-xs ${c.status === 'failed' ? 'opacity-50' : ''} hover:bg-zinc-100 dark:hover:bg-zinc-800/70" ${planned ? `data-planned="${termIndex}" data-idx="${idx}" data-code="${esc(c.code)}"` : `data-i="${index}"`} title="${esc(title)}">
+  return `<div class="flex h-6 items-center gap-1.5 rounded px-1 text-xs ${c.status === 'failed' ? 'opacity-50' : ''} hover:bg-zinc-100 dark:hover:bg-zinc-800/70" ${planned ? `data-planned="${termIndex}" data-idx="${idx}" data-code="${esc(c.code)}" draggable="true"` : `data-i="${index}"`} title="${esc(title)}">
     <span class="course-ref min-w-0 flex-1 cursor-help truncate font-mono text-[12px] ${planned ? 'text-sky-700 dark:text-sky-300' : ''}" data-course="${esc(c.code)}" tabindex="0">${esc(c.code)}${editing && !planned ? '' : `<span class="ml-1 font-sans text-[11px] text-zinc-500">${h % 1 ? h.toFixed(1) : h}</span>`}</span>
     ${editing && !planned ? `<select data-f="status" class="field h-5 w-14 px-1 text-[10px]" aria-label="Status" title="Done, in progress, or excluded from audits">
         <option value="completed" ${c.status === 'completed' ? 'selected' : ''}>Done</option>
@@ -351,7 +377,7 @@ function renderTimeline() {
 
   const addForm = (cls, attrs) => `<form class="${cls} mt-0.5 flex gap-1" ${attrs} autocomplete="off"><input class="course-input field h-6 min-w-0 flex-1 px-1.5 font-mono text-[11px] uppercase placeholder:normal-case" placeholder="Add course" aria-label="Course code" required><button class="btn h-6 px-1.5 text-[11px]" type="submit">Add</button></form>`;
   const colWidth = state.editing ? 'w-[12.5rem] shrink-0' : 'min-w-[6.75rem] flex-1 basis-0';
-  const col = (title, sub, body, cls, heavy = false) => `<div class="flex ${colWidth} flex-col rounded-md border ${cls}">
+  const col = (title, sub, body, cls, heavy = false, dropTerm = '') => `<div class="flex ${colWidth} flex-col rounded-md border ${cls}" ${dropTerm ? `data-drop-term="${esc(dropTerm)}"` : ''}>
       <div class="flex items-baseline justify-between gap-2 px-2 pt-1.5 pb-1"><span class="shrink-0 whitespace-nowrap text-xs font-medium">${title}</span><span class="min-w-0 truncate font-mono text-[11px] ${heavy ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500'}" ${heavy ? `title="Over ${school.maxTermHours || 18} hours: needs overload approval"` : 'title="Credit hours · term GPA"'}>${sub}</span></div>
       <div class="flex flex-col px-1 pb-1">${body}</div></div>`;
 
@@ -363,14 +389,14 @@ function renderTimeline() {
     const plannedHere = pIdx >= 0 ? state.plan[pIdx].courses.map((c, k) => chip({ ...c, status: 'planned', title: school.catalog?.[c.code]?.title }, { planned: true, termIndex: pIdx, idx: k })).join('') : '';
     const body = items.sort((a, b) => a.c.code.localeCompare(b.c.code)).map(({ c, i }) => chip(c, { index: i })).join('') + plannedHere +
       (state.editing ? addForm('add-course', `data-term="${esc(term === 'Transfer credit' || term === 'Other' ? '' : term)}" data-source="${term === 'Transfer credit' ? 'transfer' : 'manual'}"`) : '');
-    return col(esc(term), `${h % 1 ? h.toFixed(1) : h}h${ip ? '·IP' : tg && term !== 'Transfer credit' ? `<span class="hidden sm:inline">·${tg}</span>` : ''}`, body, 'border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40', h > (school.maxTermHours || 18));
+    return col(esc(term), `${h % 1 ? h.toFixed(1) : h}h${ip ? '·IP' : tg && term !== 'Transfer credit' ? `<span class="hidden sm:inline">·${tg}</span>` : ''}`, body, 'border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40', h > (school.maxTermHours || 18), ip ? term : '');
   });
 
   const planCols = state.plan.map((t, i) => ({ t, i })).filter(({ t }) => !groups.has(t.term)).sort((a, b) => termKey(a.t.term) - termKey(b.t.term)).map(({ t, i }) => {
     const h = t.courses.reduce((a, c) => a + hoursOf(c), 0);
     const body = t.courses.map((c, k) => chip({ ...c, status: 'planned', title: school.catalog?.[c.code]?.title }, { planned: true, termIndex: i, idx: k })).join('') + addForm('add-planned', `data-term="${i}"`);
     const title = `${esc(t.term)}${state.editing ? ` <button type="button" class="btn-icon ml-0.5 size-5 rounded align-middle" data-f="remove-term" data-term="${i}" aria-label="Remove ${esc(t.term)}"><svg class="size-3"><use href="#i-x"/></svg></button>` : ''}`;
-    return col(title, `${h}h`, body, 'border-dashed border-sky-300 dark:border-sky-800', h > (school.maxTermHours || 18));
+    return col(title, `${h}h`, body, 'border-dashed border-sky-300 dark:border-sky-800', h > (school.maxTermHours || 18), t.term);
   });
 
   const d = nextTermDefault();
@@ -383,6 +409,35 @@ function renderTimeline() {
   $('#timeline').innerHTML = pastCols.join('') + planCols.join('') + addCol;
   annotatePlannedSeasons();
   $('#term-season').value = d.season;
+}
+
+/** Popover with concrete courses for a placeholder; choosing one replaces the placeholder. */
+let phPanel;
+async function openPlaceholderSuggestions(el) {
+  const ti = Number(el.dataset.planned), idx = Number(el.dataset.idx);
+  const term = state.plan[ti]; const ph = term?.courses[idx]; if (!ph) return;
+  if (!phPanel) {
+    phPanel = document.createElement('div');
+    phPanel.className = 'fixed z-40 hidden w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-zinc-200 bg-white p-2 text-xs shadow-lg dark:border-zinc-700 dark:bg-zinc-900';
+    document.body.appendChild(phPanel);
+    document.addEventListener('click', (ev) => { if (!phPanel.contains(ev.target) && !ev.target.closest('[data-f="suggest"]')) phPanel.classList.add('hidden'); });
+    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') phPanel.classList.add('hidden'); });
+  }
+  const r = el.getBoundingClientRect();
+  phPanel.style.left = `${Math.min(Math.max(8, r.left), innerWidth - 328)}px`; phPanel.style.top = `${Math.min(r.bottom + 4, innerHeight - 260)}px`;
+  phPanel.innerHTML = `<div class="px-1.5 py-1 text-zinc-500">Finding courses for ${esc(term.term)}…</div>`;
+  phPanel.classList.remove('hidden');
+  const all = new Set(lastPrepared.flatMap((c) => c.aliases));
+  const before = new Set(prepareCourses([...state.courses, ...state.plan.filter((t) => termKey(t.term) < termKey(term.term)).flatMap((t) => t.courses.filter((c) => c.code).map((c) => ({ code: c.code, status: 'planned' })))], school, {}).flatMap((c) => c.aliases));
+  const list = await suggestForPlaceholder({ school, placeholder: ph, termName: term.term, codesBefore: before, allCodes: all, loadSections });
+  phPanel.innerHTML = `<div class="px-1.5 pb-1 pt-0.5 font-medium">${esc(ph.label)} · ${esc(term.term)}</div>` + (list.length
+    ? list.map((sg) => `<button type="button" class="flex w-full items-baseline gap-2 rounded px-1.5 py-1 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800" data-use="${esc(sg.code)}"><span class="course-ref shrink-0 font-mono text-[12px] font-medium" data-course="${esc(sg.code)}">${esc(sg.code)}</span><span class="min-w-0 flex-1 truncate text-zinc-600 dark:text-zinc-400">${esc(titleCase(sg.title))}</span><span class="shrink-0 text-[10px] text-zinc-400">${esc(sg.note)}</span></button>`).join('')
+    : '<div class="px-1.5 py-1 text-zinc-500">No confident suggestions for this term. Try the Schedule tab search.</div>');
+  phPanel.querySelectorAll('[data-use]').forEach((b) => b.addEventListener('click', () => {
+    const code = b.dataset.use;
+    term.courses[idx] = { code, hours: school.catalog?.[code]?.hours, why: `You chose this for: ${ph.label}` };
+    phPanel.classList.add('hidden'); save(); renderAll();
+  }));
 }
 
 /** Mark planned courses whose term's season does not match when the course has historically run. */
@@ -412,13 +467,15 @@ async function runAutoPlan() {
   try {
     // Distribution needs are measured against everything except earlier auto-planned courses, which get rebuilt.
     const keep = state.plan.flatMap((t) => t.courses.filter((c) => c.code && !c.auto).map((c) => ({ code: c.code, hours: c.hours, status: 'planned', term: t.term })));
-    const dist = await distributionSummary(prepareCourses([...state.courses, ...keep], school, {}), school);
+    const deg = await auditDegree({ school, programs, courses: prepareCourses([...state.courses, ...keep], school, {}), loadDetails: (code) => courseDetails(school, code) });
     const result = await autoPlan({
       school, programs, courses: state.courses, plan: state.plan, overrides: state.overrides,
-      hoursPerTerm: Number($('#auto-hours').value) || 16, graduateBy: $('#auto-target').value,
-      distNeed: dist ? dist.need : {}, loadDetails: (code) => courseDetails(school, code), loadSections,
+      hoursPerTerm: Number($('#auto-hours').value) || 16, graduateBy: $('#auto-target').value, includeSummers: $('#auto-summers').checked,
+      distNeed: deg ? deg.distNeed : {}, degreeNeed: deg ? { missing: deg.missing, hoursNeed: deg.hours.need } : null,
+      loadDetails: (code) => courseDetails(school, code), loadSections,
     });
-    state.plan = result.plan; state.autoTarget = $('#auto-target').value;
+    undoable('Plan rebuilt by Auto-plan.', () => { state.plan = result.plan; });
+    state.autoTarget = $('#auto-target').value;
     const notes = [];
     for (const t of result.plan) {
       const auto = t.courses.filter((c) => c.auto); if (!auto.length) continue;
@@ -429,11 +486,13 @@ async function runAutoPlan() {
     if (prereqs.length) notes.push(`Added prerequisites: ${prereqs.join(', ')}.`);
     const unknown = result.placed.filter((p) => p.unknownOffering).map((p) => p.code);
     if (unknown.length) notes.push(`No offering history for ${unknown.join(', ')}; confirm when they run.`);
-    if (result.placeholders.length) notes.push(`${result.placeholders.length} placeholder${result.placeholders.length === 1 ? '' : 's'} mark courses only you can choose (electives, distribution). Hover any planned course for the reasoning.`);
+    const coreqs = result.placed.filter((p) => p.coreqOf).map((p) => `${p.code} (with ${p.coreqOf})`);
+    if (coreqs.length) notes.push(`Added co-requisites: ${coreqs.join(', ')}.`);
+    if (result.placeholders.length) notes.push(`${result.placeholders.length} placeholder${result.placeholders.length === 1 ? '' : 's'} mark courses only you can choose. Click one for suggestions that run that term; hover any planned course for the reasoning.`);
     for (const u of result.unplaced.slice(0, 6)) notes.push(`Could not place ${u.code}: ${u.reason}.`);
     if (result.beyondTarget) notes.push(`This runs past your target of ${result.target}; raise the hours cap or pick a later term.`);
     const gap = Math.ceil(result.degreeHours - result.totalHours);
-    notes.push(gap > 0 ? `Reaches ${Math.floor(result.totalHours)} of ${result.degreeHours} degree hours: about ${gap} more hours of free electives needed.` : `Reaches ${Math.floor(result.totalHours)} of ${result.degreeHours} degree hours.`);
+    notes.push(gap > 0 ? `Reaches ${Math.floor(result.totalHours)} of ${result.degreeHours} degree hours: ${gap} short even with placeholders; raise the cap or extend the target.` : `Reaches ${Math.floor(result.totalHours)} of the ${result.degreeHours} hours your degree requires.`);
     const n = result.placed.length;
     setStatus(n || result.placeholders.length ? `Auto-planned ${n} course${n === 1 ? '' : 's'} through ${result.lastTerm}, balanced at about ${result.softLoad} hrs per term.` : 'Nothing to add: your plan already covers every requirement.', 'ok', notes);
     clearTimeout(statusTimer);
@@ -441,14 +500,44 @@ async function runAutoPlan() {
   } finally { btn.disabled = false; btn.textContent = 'Auto-plan'; }
 }
 
+/** Move a planned course (or placeholder) to another term by name, creating the plan term when needed. */
+function movePlanned(fromIndex, idx, toTermName) {
+  const from = state.plan[fromIndex]; const course = from?.courses[idx];
+  if (!course || from.term === toTermName) return;
+  let to = state.plan.find((t) => t.term === toTermName);
+  if (!to) { to = { term: toTermName, courses: [] }; state.plan.push(to); }
+  if (course.code && to.courses.some((c) => c.code === course.code)) return;
+  from.courses = from.courses.filter((c) => c !== course);
+  if (course.code) unscheduleCourse(from.term, course.code);
+  to.courses.push({ ...course, fromSchedule: false, auto: false });
+  state.plan = state.plan.filter((t) => t.courses.length);
+  save(); renderAll();
+}
+
+function initDragAndDrop() {
+  const tl = $('#timeline');
+  let drag = null;
+  tl.addEventListener('dragstart', (e) => {
+    const el = e.target.closest('[data-planned]'); if (!el) return;
+    drag = { from: Number(el.dataset.planned), idx: Number(el.dataset.idx) };
+    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', el.dataset.code || 'placeholder');
+    el.classList.add('opacity-50');
+  });
+  tl.addEventListener('dragend', (e) => { e.target.closest?.('[data-planned]')?.classList.remove('opacity-50'); tl.querySelectorAll('.ring-2').forEach((c) => c.classList.remove('ring-2', 'ring-sky-400')); drag = null; });
+  tl.addEventListener('dragover', (e) => { const col = e.target.closest('[data-drop-term]'); if (!drag || !col) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; col.classList.add('ring-2', 'ring-sky-400'); });
+  tl.addEventListener('dragleave', (e) => { const col = e.target.closest('[data-drop-term]'); if (col && !col.contains(e.relatedTarget)) col.classList.remove('ring-2', 'ring-sky-400'); });
+  tl.addEventListener('drop', (e) => { const col = e.target.closest('[data-drop-term]'); if (!drag || !col) return; e.preventDefault(); e.stopPropagation(); const d = drag; drag = null; movePlanned(d.from, d.idx, col.dataset.dropTerm); });
+}
+
 function initTimeline() {
+  initDragAndDrop();
   $('#auto-btn').addEventListener('click', runAutoPlan);
   $('#auto-target').addEventListener('change', (e) => { state.autoTarget = e.target.value; save(); });
-  $('#auto-clear').addEventListener('click', () => {
+  $('#auto-clear').addEventListener('click', () => undoable('Auto-planned courses removed.', () => {
     for (const t of state.plan) t.courses = t.courses.filter((c) => !c.auto);
     state.plan = state.plan.filter((t) => t.courses.length);
-    setStatus('Removed auto-planned courses.', 'ok'); save(); renderAll();
-  });
+    save(); renderAll();
+  }));
   const tl = $('#timeline');
   tl.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -482,11 +571,15 @@ function initTimeline() {
     const c = state.courses[Number(e.target.closest('[data-i]').dataset.i)]; if (!c) return;
     c.status = e.target.value; save(); renderAll();
   });
-  tl.addEventListener('click', (e) => {
+  tl.addEventListener('click', async (e) => {
+    const sug = e.target.closest('[data-f="suggest"]');
+    if (sug) { openPlaceholderSuggestions(sug.closest('[data-planned]')); return; }
     const btn = e.target.closest('[data-f]'); if (!btn) return;
-    if (btn.dataset.f === 'remove-term') { state.plan.splice(Number(btn.dataset.term), 1); save(); renderAll(); return; }
+    if (btn.dataset.f === 'remove-term') { const gone = state.plan[Number(btn.dataset.term)]?.term; undoable(`${gone} removed from the plan.`, () => { state.plan.splice(Number(btn.dataset.term), 1); save(); renderAll(); }); return; }
     if (btn.dataset.f !== 'remove') return;
     const pl = btn.closest('[data-planned]');
+    const label = pl ? (pl.dataset.code || 'Placeholder') : state.courses[Number(btn.closest('[data-i]').dataset.i)]?.code;
+    undoSnapshot = null; undoable(`${label} removed.`, () => {});
     if (pl) { const t = state.plan[Number(pl.dataset.planned)]; const c0 = t.courses[Number(pl.dataset.idx)]; t.courses = t.courses.filter((c) => c !== c0); if (c0?.code) unscheduleCourse(t.term, c0.code); if (!t.courses.length) state.plan = state.plan.filter((x) => x !== t); }
     else state.courses.splice(Number(btn.closest('[data-i]').dataset.i), 1);
     save(); renderAll();
@@ -618,7 +711,7 @@ function initResults() {
       e.preventDefault();
       const id = act.dataset.id;
       if (act.dataset.action === 'declare' && !state.declared.includes(id)) state.declared.push(id);
-      if (act.dataset.action === 'undeclare') state.declared = state.declared.filter((x) => x !== id);
+      if (act.dataset.action === 'undeclare') { undoable('Program removed from your list.', () => { state.declared = state.declared.filter((x) => x !== id); save(); renderAll(); }); return; }
       save(); renderResults(); return;
     }
     const ovAdd = e.target.closest('[data-ov-add]');

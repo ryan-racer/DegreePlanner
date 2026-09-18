@@ -11,6 +11,9 @@ export default {
     'At most 2 courses (6 credit hours) of Asian language study (Arabic, Chinese, Japanese, or Korean) may count toward the minor.',
     'All ASIA program course offerings, many of which are cross-listed, may be used to satisfy elective requirements.',
   ],
+  constraints: [
+    { type: 'atLeast', count: 3, from: [{ dept: '*', min: 300 }], among: ['1'], label: 'At least 3 of the electives at the 300 level or above' },
+  ],
   requirements: [
     { type: 'course', name: 'Core Requirement', options: ['ASIA 295'] },
     { type: 'group', name: 'Elective Requirements', requirements: [

@@ -7,9 +7,11 @@ export default {
   url: 'https://ga.rice.edu/programs-study/departments-programs/humanities/french-studies/french-studies-ba/',
   hours: 30,
   notes: [
-    'At most 2 FREN courses taught in English (FREN 250, 308, 324, 325, 337, 355, 402, 478) may count toward the major.',
     'Core Requirement courses must be taken at Rice, as early as possible.',
     'Any 200- or 300-level elective may be replaced by a higher-level FREN course. Rice in France participants may count FREN 306 as an elective alongside FREN 300.',
+  ],
+  constraints: [
+    { type: 'atMost', count: 2, from: ['FREN 250', 'FREN 308', 'FREN 324', 'FREN 325', 'FREN 337', 'FREN 355', 'FREN 402', 'FREN 478'], label: 'At most 2 FREN courses taught in English (FREN 250, 308, 324, 325, 337, 355, 402, 478)' },
   ],
   requirements: [
     { type: 'group', name: 'Core Requirements', requirements: [

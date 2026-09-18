@@ -8,7 +8,6 @@ export default {
   hours: 47,
   notes: [
     'No substitutions or transfer credit for PSYC 339, SOSC 302, or PSYC 340; complete them preferably by the end of sophomore year.',
-    'Up to 12 credit hours combined of PSYC 485 and/or PSYC 488 may count toward the major, with at most 3 credit hours from PSYC 488.',
     'Once enrolled at Rice, departmental approval is required to transfer courses from another institution.',
   ],
   requirements: [
@@ -17,5 +16,9 @@ export default {
     ]},
     { type: 'choose', name: 'Elective Requirements', count: 10, from: [{ dept: 'PSYC' }],
       note: '10 additional departmental (PSYC) courses.' },
+  ],
+  constraints: [
+    { type: 'atMost', hours: 12, from: ['PSYC 485', 'PSYC 488'], label: 'At most 12 credit hours combined of PSYC 485 and PSYC 488' },
+    { type: 'atMost', hours: 3, from: ['PSYC 488'], label: 'At most 3 credit hours of PSYC 488' },
   ],
 };

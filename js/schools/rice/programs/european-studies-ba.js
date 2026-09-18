@@ -7,10 +7,12 @@ export default {
   url: 'https://ga.rice.edu/programs-study/departments-programs/humanities/european-studies/european-studies-ba/',
   hours: 30,
   notes: [
-    'At least 5 of the 8 elective courses must be at the 300 level or above.',
     'Within Elective Group B, at most 2 courses may come from any one subject code.',
     'Up to 2 European-language courses at the 300 level or above (excluding FREN 301, FREN 302, GERM 301, GERM 302) may count as electives; an honors thesis may count as 2 electives.',
     'At least 6 courses, including EURO 102 and EURO 401, must be taken at Rice.',
+  ],
+  constraints: [
+    { type: 'atLeast', count: 5, from: [{ dept: '*', min: 300 }], among: ['1'], label: 'At least 5 of the 8 electives at the 300 level or above' },
   ],
   requirements: [
     { type: 'course', name: 'Core Requirement', options: ['EURO 102'] },

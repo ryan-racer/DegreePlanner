@@ -7,7 +7,6 @@ export default {
   url: 'https://ga.rice.edu/programs-study/departments-programs/humanities/media-studies/media-studies-ba/',
   hours: 30,
   notes: [
-    'At least 6 major courses must be at the 300 level or above, so 5 of the 7 electives should be 300-level or above.',
     'ARTS 238 (special topics) counts only when the topic is related to Media Studies and is approved.',
   ],
   requirements: [
@@ -43,5 +42,8 @@ export default {
       ]},
     ]},
     { type: 'course', name: 'Capstone', options: ['MDIA 410'] },
+  ],
+  constraints: [
+    { type: 'atLeast', count: 6, from: [{ dept: '*', min: 300 }], label: 'At least 6 major courses at the 300 level or above' },
   ],
 };

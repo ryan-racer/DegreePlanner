@@ -10,6 +10,9 @@ export default {
     'At least 3 of the 6 courses (9 credit hours) must be at the 300 level or above.',
     'The 5 elective courses must come from at least 3 different subject codes.',
   ],
+  constraints: [
+    { type: 'atLeast', count: 3, from: [{ dept: '*', min: 300 }], label: 'At least 3 courses at the 300 level or above' },
+  ],
   requirements: [
     { type: 'course', name: 'Core Requirement', options: ['AAAS 200'] },
     { type: 'group', name: 'Elective Requirements', requirements: [

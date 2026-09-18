@@ -10,7 +10,7 @@ export default {
     'Students must pass the Piano Proficiency Exam.',
     'Ensemble and piano study are repeated each semester: at least 5 semesters of ensemble and 4 semesters of MUSI 381. The senior project is 2 semesters of MUSI 449.',
     'MUSI 338 is recommended but not required.',
-    'At least 14 courses (50 hours) at the 300 level or above. Minimum major GPA of 2.00.',
+    'Minimum major GPA of 2.00.',
   ],
   requirements: [
     { type: 'all', name: 'Music Theory', items: ['MUSI 211', 'MUSI 212', 'MUSI 311', 'MUSI 312', 'MUSI 512', 'MUSI 513', 'MUSI 613'] },
@@ -23,5 +23,8 @@ export default {
     { type: 'choose', name: 'Ensemble', count: 5, from: ['MUSI 335', 'MUSI 337'], note: 'Minimum of 5 semesters.' },
     { type: 'choose', name: 'Piano Study', count: 4, from: ['MUSI 381'], note: 'Minimum of 4 semesters.' },
     { type: 'choose', name: 'Senior Project', count: 2, from: ['MUSI 449'], note: 'Two semesters of MUSI 449.' },
+  ],
+  constraints: [
+    { type: 'atLeast', count: 14, from: [{ dept: '*', min: 300 }], label: 'At least 14 courses (50 hours) at the 300 level or above' },
   ],
 };

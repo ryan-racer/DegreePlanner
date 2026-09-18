@@ -1,0 +1,29 @@
+name: Refresh Rice data
+# Re-crawls the General Announcements and the course schedule, regenerates the data modules, and commits the result
+# when the validator, smoke test, and unit tests all pass. Program definition files are never rewritten here.
+on:
+  schedule: [{ cron: '0 9 * * 1' }]   # Mondays 09:00 UTC
+  workflow_dispatch:
+permissions: { contents: write }
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: npm ci
+      - name: Crawl and regenerate
+        run: tools/refresh-rice-data.sh "$RUNNER_TEMP/rice-crawl"
+      - name: Report catalog drift
+        run: node tools/diff-catalog.mjs "$RUNNER_TEMP/rice-crawl" | tail -40 >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit if anything changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A data js/schools/rice
+          git diff --cached --quiet || git commit -m "data: weekly Rice refresh"
+          git push

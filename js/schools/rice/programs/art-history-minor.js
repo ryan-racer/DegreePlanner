@@ -11,6 +11,9 @@ export default {
     'Breadth courses must be at the 200 level or above and come from 2 different areas within each breadth category.',
     'At most 2 courses (6 credit hours) may be taken outside HART (or not cross-listed with HART), including study abroad or transfer credit, with Director of Undergraduate Studies approval.',
   ],
+  constraints: [
+    { type: 'atLeast', count: 3, from: [{ dept: '*', min: 300 }], label: 'At least 3 courses at the 300 level or above' },
+  ],
   requirements: [
     { type: 'any', name: 'Chronological Breadth (2 courses from 2 of 3 areas)', options: [
       { type: 'group', name: 'Up to c. 1400 CE + another area', requirements: [

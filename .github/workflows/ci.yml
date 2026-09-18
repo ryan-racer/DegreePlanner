@@ -1,0 +1,19 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Validate program files, smoke test, unit tests
+        run: npm run check
+      - name: Generated files are up to date
+        run: |
+          npm run build
+          node tools/gen-index.mjs rice
+          git diff --exit-code -- css/app.css js/schools/rice/programs/index.js js/schools/rice/programs.bundle.js

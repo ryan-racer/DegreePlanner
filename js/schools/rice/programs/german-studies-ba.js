@@ -19,4 +19,9 @@ export default {
       { type: 'choose', name: 'GERM Electives (any level)', count: 2, from: [{ dept: 'GERM', min: 100 }] },
     ]},
   ],
+  constraints: [
+    { type: 'atMost', count: 2, from: [{ dept: 'GERM', max: 199 }], among: ['1'], label: 'No more than 2 electives at the 100 level' },
+    { type: 'atMost', count: 2, from: ['GERM 322', 'GERM 324', 'GERM 326', 'GERM 333', 'GERM 336', 'GERM 340', 'GERM 345', 'GERM 352'], among: ['1'],
+      label: 'No more than 2 electives taught in English' },
+  ],
 };

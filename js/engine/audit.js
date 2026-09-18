@@ -31,14 +31,16 @@ export function prepareCourses(courses, school, opts = {}) {
 export function auditProgram(program, courses, overrides = []) {
   const reserved = collectExactCodes(program.requirements);
   reserved.refs = countExactRefs(program.requirements);
-  const used = new Set();
+  const used = new Map(); // course key -> path of the node that spent it
+  reserved.byKey = new Map(courses.map((c) => [c.key, c]));
+  reserved.constraints = program.constraints || [];
   // Manual substitutions approved by an advisor: { key, code }. `key` is a node path ("0.1") for choose/hours nodes
   // or "path#slot" for a slot of a course/all node. Claim those courses first so nothing else spends them.
   const ov = new Map();
   for (const o of overrides || []) {
     const c = courses.find((x) => !used.has(x.key) && x.aliases.includes(o.code));
     if (!c) continue;
-    used.add(c.key);
+    used.set(c.key, String(o.key).split('#')[0]);
     if (!ov.has(o.key)) ov.set(o.key, []);
     ov.get(o.key).push(c);
   }
@@ -131,10 +133,31 @@ function evalNode(node, courses, used, reserved, path) {
   }
 }
 
-/** Pick the best unused course for a list of alternative specs. `allow` optionally filters candidates further. */
-function pickFor(specs, courses, used, reserved, allow) {
+const inScope = (k, path) => !k.among || k.among.some((a) => path === a || path.startsWith(`${a}.`));
+/** How much of a program-level constraint the current allocation already uses (count or hours). */
+function tally(k, used, reserved) {
+  let n = 0;
+  for (const [key, path] of used) {
+    if (!inScope(k, path)) continue;
+    const c = reserved.byKey.get(key);
+    if (c && (k.from || []).some((s) => courseMatchesSpec(c, s))) n += k.hours != null ? c.hours : 1;
+  }
+  return n;
+}
+
+/**
+ * Pick the best unused course for a list of alternative specs. `allow` optionally filters candidates further.
+ * Program-level constraints steer the choice: a course that would break an "at most" cap is not spent here, and
+ * courses that help an unmet "at least" rule are preferred, so a qualifying transcript is never reported short.
+ */
+function pickFor(specs, courses, used, reserved, allow, path = '') {
   const specList = Array.isArray(specs) ? specs : [specs];
-  const candidates = courses.filter((c) => !used.has(c.key) && specList.some((s) => courseMatchesSpec(c, s)) && (!allow || allow(c)));
+  const live = (reserved.constraints || []).filter((k) => inScope(k, path));
+  const capped = live.filter((k) => k.type === 'atMost').map((k) => ({ k, room: (k.hours != null ? k.hours : k.count) - tally(k, used, reserved) }));
+  const wanted = live.filter((k) => k.type !== 'atMost' && tally(k, used, reserved) < (k.hours != null ? k.hours : k.count));
+  const hits = (c, k) => (k.from || []).some((s) => courseMatchesSpec(c, s));
+  const overCap = (c) => capped.some(({ k, room }) => hits(c, k) && (k.hours != null ? c.hours : 1) > room);
+  const candidates = courses.filter((c) => !used.has(c.key) && specList.some((s) => courseMatchesSpec(c, s)) && (!allow || allow(c)) && !overCap(c));
   if (!candidates.length) return null;
   // Prefer courses that exactly match a string spec, then non-reserved courses (leave named courses for their own slots),
   // then courses that fewer other slots could use, then completed over in-progress over planned.
@@ -144,7 +167,8 @@ function pickFor(specs, courses, used, reserved, allow) {
     const isReserved = c.aliases.some((a) => reserved.has(a)) ? 1 : 0;
     const demand = Math.max(0, ...c.aliases.map((a) => refs.get(a) || 0));
     const ip = c.status === 'planned' ? 2 : c.status === 'in-progress' ? 1 : 0;
-    return [exact, isReserved, demand, ip];
+    const helps = wanted.length ? -wanted.filter((k) => hits(c, k)).length : 0;
+    return [exact, helps, isReserved, demand, ip];
   };
   const cmp = (a, b) => { const x = score(a), y = score(b); for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; };
   candidates.sort(cmp);
@@ -157,8 +181,8 @@ function evalAll(node, courses, used, reserved, single, path, original) {
     const key = `${path}#${i}`;
     const manual = reserved.ov?.get(key)?.[0];
     if (manual) return { specs, course: manual, manual: true, key };
-    const c = pickFor(specs, courses, used, reserved);
-    if (c) used.add(c.key);
+    const c = pickFor(specs, courses, used, reserved, null, path);
+    if (c) used.set(c.key, path);
     return { specs, course: c || null, key };
   });
   const remaining = slots.filter((s) => !s.course).length;
@@ -181,7 +205,7 @@ function evalChoose(node, courses, used, reserved, path) {
   const missing = [];
   const manual = new Set();
   for (const c of (reserved.ov?.get(path) || []).slice(0, count)) { filled.push(c); manual.add(c.key); }
-  const take = (c) => { used.add(c.key); filled.push(c); };
+  const take = (c) => { used.set(c.key, path); filled.push(c); };
   // Sub-quotas first ("at least 2 must be CMOR courses"): only the deficit after courses already filled.
   for (const q of node.atLeast || []) {
     const have = filled.filter((c) => (q.from || []).some((s) => courseMatchesSpec(c, s))).length;
@@ -190,12 +214,12 @@ function evalChoose(node, courses, used, reserved, path) {
         const ok = (node.from || []).some((s) => courseMatchesSpec(x, s));
         const ex = exclusiveFilter(node, filled);
         return ok && (!ex || ex(x));
-      });
+      }, path);
       if (c) take(c); else missing.push({ specs: q.from || [], label: q.label });
     }
   }
   while (filled.length + missing.length < count) {
-    const c = pickFor(node.from || [], courses, used, reserved, exclusiveFilter(node, filled));
+    const c = pickFor(node.from || [], courses, used, reserved, exclusiveFilter(node, filled), path);
     if (!c) break;
     take(c);
   }
@@ -211,9 +235,9 @@ function evalHours(node, courses, used, reserved, path) {
   const manual = new Set();
   for (const c of reserved.ov?.get(path) || []) { filled.push(c); manual.add(c.key); earned += c.hours; }
   while (earned < need) {
-    const c = pickFor(node.from || [], courses, used, reserved, exclusiveFilter(node, filled));
+    const c = pickFor(node.from || [], courses, used, reserved, exclusiveFilter(node, filled), path);
     if (!c) break;
-    used.add(c.key);
+    used.set(c.key, path);
     filled.push(c);
     earned += c.hours;
   }
@@ -225,13 +249,13 @@ function evalHours(node, courses, used, reserved, path) {
 function evalAny(node, courses, used, reserved, path) {
   let best = null;
   (node.options || []).forEach((opt, j) => {
-    const trial = new Set(used);
+    const trial = new Map(used);
     const res = evalNode(opt, courses, trial, reserved, `${path}.o${j}`);
     const pct = res.total ? (res.total - res.remaining) / res.total : 1;
     if (!best || pct > best.pct || (pct === best.pct && res.remaining < best.res.remaining)) best = { res, trial, pct };
   });
   if (!best) return { node, kind: 'any', children: [], chosen: null, remaining: 0, total: 0, satisfied: true };
-  for (const k of best.trial) used.add(k);
+  for (const [k, v] of best.trial) used.set(k, v);
   const others = (node.options || []).filter((o) => o !== best.res.node).map((o) => ({ node: o }));
   return { node, kind: 'any', children: [best.res], chosen: best.res, alternatives: others,
     remaining: best.res.remaining, total: best.res.total, satisfied: best.res.satisfied };

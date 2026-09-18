@@ -18,7 +18,7 @@ export default {
   url: 'https://ga.rice.edu/programs-study/departments-programs/engineering/computational-applied-mathematics-operations-research/operations-research-ba/',
   hours: 53,
   notes: [
-    'Area of Specialization: 6 courses (18-19 hours), at least 3 of which must be CMOR courses. The same course cannot count for both an area core requirement and an area elective.',
+    'Area of Specialization: 6 courses (18-19 hours). The same course cannot count for both an area core requirement and an area elective.',
     'Some listed electives are graduate (500-level and above) courses requiring special registration.',
   ],
   requirements: [
@@ -60,5 +60,8 @@ export default {
       { type: 'all', name: 'CMOR 492 and CMOR 493', items: ['CMOR 492', 'CMOR 493'] },
       { type: 'course', name: 'DSCI 435', options: ['DSCI 435', 'COMP 449'] },
     ]},
+  ],
+  constraints: [
+    { type: 'atLeast', count: 3, from: [{ dept: 'CMOR' }], among: ['3'], label: 'At least 3 Area of Specialization courses must be CMOR courses' },
   ],
 };

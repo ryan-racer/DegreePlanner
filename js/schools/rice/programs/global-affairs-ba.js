@@ -27,8 +27,8 @@ export default {
     ]},
     { type: 'any', name: 'Language Requirement', options: [
       { type: 'choose', name: 'Arabic', count: 4, from: [{ dept: 'ARAB' }] },
-      { type: 'choose', name: 'Chinese', count: 4, from: [{ dept: 'CHIN' }] },
-      { type: 'choose', name: 'French', count: 4, from: [{ dept: 'FREN' }] },
+      { type: 'choose', name: 'Chinese', count: 4, from: ['CHIN 332', 'CHIN 334', 'CHIN 422', { dept: 'CHIN' }] },
+      { type: 'choose', name: 'French', count: 4, from: ['FREN 414', { dept: 'FREN' }] },
       { type: 'choose', name: 'German', count: 4, from: [{ dept: 'GERM' }] },
       { type: 'choose', name: 'Hebrew', count: 4, from: [{ dept: 'HEBR' }] },
       { type: 'choose', name: 'Italian', count: 4, from: [{ dept: 'ITAL' }] },

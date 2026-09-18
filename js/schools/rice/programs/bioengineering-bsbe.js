@@ -8,7 +8,7 @@ export default {
   hours: 97,
   degreeHours: 131,
   notes: [
-    'Technical electives must total at least 9 credit hours. BIOE 400, EDES 300 and GLHT 400 may count for at most 6 credit hours combined (at least 3 hours per course in one semester).',
+    'Technical electives must total at least 9 credit hours. BIOE 400, EDES 300 and GLHT 400 count only when taken for at least 3 hours in one semester.',
     'BIOE 400 taken for at least 3 credit hours in one semester may replace one Bioengineering Laboratory module (this does not count toward the technical elective allowance).',
     'EDES 355 may not be used as a technical elective if BIOE 447 is used as a Bioengineering Laboratory course.',
     'PHYS 141 and PHYS 142 credit is not eligible for the major.',
@@ -53,5 +53,8 @@ export default {
       'ELEC 478', 'ELEC 487', 'ELEC 489', 'ELEC 540', 'ELEC 677', 'GLHT 400',
       'MECH 310', 'MECH 311', 'MECH 343', 'MECH 371', 'MECH 400', 'MECH 417', 'MECH 420', 'MECH 488', 'MECH 497', 'MSNE 402',
     ], note: 'At least 3 courses and 9 credit hours from the approved technical elective list.' },
+  ],
+  constraints: [
+    { type: 'atMost', hours: 6, from: ['BIOE 400', 'EDES 300', 'GLHT 400'], among: ['3'], label: 'At most 6 credit hours of BIOE 400, EDES 300 and GLHT 400 combined as technical electives' },
   ],
 };

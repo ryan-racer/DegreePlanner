@@ -93,10 +93,28 @@ test('program-level constraints: atLeast across sections and atMost caps', () =>
   ] });
   const bad = auditProgram(p, prep([c('CS 101'), c('CS 201'), c('MA 101'), c('CS 301')]));
   assert.equal(bad.constraints[0].satisfied, false);   // only CS 301 is 300+
-  assert.equal(bad.constraints[1].satisfied, false);   // MA 101 sits in the electives
+  assert.ok(!bad.usedCourses.some((x) => x.code === 'MA 101'), 'a course over an "at most" cap is not spent, so it never counts');
+  assert.equal(bad.tree[1].remaining, 1, 'its slot stays open instead');
   assert.equal(bad.satisfied, false);
-  assert.ok(bad.remaining >= 1);
   const good = auditProgram(p, prep([c('CS 101'), c('CS 201'), c('CS 310'), c('CS 301')]));
   assert.ok(good.constraints.every((k) => k.satisfied));
   assert.equal(good.remaining, 0);
+});
+
+test('the picker prefers courses that satisfy an unmet program-level rule', () => {
+  // Three electives from any CS course, at least 2 at the 300 level. The student has plenty of both levels;
+  // a greedy picker that takes CS 101 and CS 201 first would wrongly report the rule as unmet.
+  const p = prog([{ type: 'choose', name: 'Electives', count: 3, from: [{ dept: 'CS' }] }],
+    { constraints: [{ type: 'atLeast', count: 2, from: [{ dept: '*', min: 300 }], label: 'Two at 300+' }] });
+  const r = auditProgram(p, prep([c('CS 101'), c('CS 201'), c('CS 301'), c('CS 310')]));
+  assert.equal(r.constraints[0].satisfied, true);
+  assert.equal(r.remaining, 0);
+});
+
+test('hour caps stop counting once reached', () => {
+  const p = prog([{ type: 'hours', name: 'Research and electives', hours: 9, from: [{ dept: 'CS', min: 300 }] }],
+    { constraints: [{ type: 'atMost', hours: 3, from: ['CS 350', 'CS 360'], label: 'At most 3 hours of topics' }] });
+  const r = auditProgram(p, prep([c('CS 350'), c('CS 360'), c('CS 301')]));
+  assert.equal(r.tree[0].earned, 6, 'only one topics course counts');
+  assert.ok(r.constraints[0].satisfied);
 });

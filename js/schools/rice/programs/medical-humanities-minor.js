@@ -8,7 +8,7 @@ export default {
   hours: 18,
   notes: [
     'At most 2 elective courses (6 credit hours) may come from any single subject code outside MDHM (cross-listed MDHM courses count toward the other subject code).',
-    'At most 1 course (3 credit hours) at the 100 level may count, and only if it carries the MDHM subject code.',
+    'A 100-level course may count only if it carries the MDHM subject code.',
     'MDHM 201 must be completed before the practicum; they may not be taken concurrently. Only 3 credit hours of MDHM 430 count.',
     'SPAN 323 may count as either an elective or the practicum, not both, and only sections in the Spanish for Medical Professionals track qualify.',
     'ANTH 477, CHIN 319, GERM 477, PHIL 460, and SPAN 322 are special topics courses; only approved sections count.',
@@ -35,5 +35,8 @@ export default {
       { type: 'all', name: 'Year-long practicum (MDHM 402 and MDHM 403)', items: ['MDHM 402', 'MDHM 403'] },
       { type: 'course', name: 'One-semester practicum', options: ['MDHM 420', 'MDHM 421', 'MDHM 430', 'MDHM 435', 'MDHM 436', 'SPAN 323'] },
     ]},
+  ],
+  constraints: [
+    { type: 'atMost', count: 1, from: [{ dept: '*', max: 199 }], label: 'At most 1 course at the 100 level' },
   ],
 };

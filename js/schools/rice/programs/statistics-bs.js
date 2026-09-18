@@ -40,7 +40,14 @@ export default {
       ]},
       { type: 'choose', name: 'Additional STAT Electives', count: 2, from: [
         { dept: 'STAT', min: 300, exclude: ['STAT 305', 'STAT 310', 'STAT 311', 'STAT 312', 'STAT 315', 'STAT 385'] },
-      ], note: 'STAT courses at the 300 level or above (with approval, 1 may be from outside STAT).' },
+        // Approved Electives outside Statistics (at most 1, with advisor approval)
+        'CMOR 350', 'CMOR 360', 'CMOR 451', 'CMOR 455', 'COMP 322', 'COMP 330', 'COMP 382', 'COMP 422', 'COMP 430',
+        'COMP 440', 'COMP 441', 'COMP 502', 'DSCI 302', 'DSCI 304', 'DSCI 435', 'ECON 300', 'ECON 305', 'ECON 308',
+        'ECON 310', 'ECON 418',
+      ], exclusive: [[
+        'CMOR 350', 'CMOR 360', 'CMOR 451', 'CMOR 455', 'COMP 322', 'COMP 330', 'COMP 382', 'COMP 422', 'COMP 430',
+        'COMP 440', 'COMP 441', 'DSCI 302', 'DSCI 304', 'DSCI 435', 'ECON 300', 'ECON 305', 'ECON 308', 'ECON 418',
+      ]], note: 'STAT courses at the 300 level or above; with advisor approval, 1 may be an approved elective from outside STAT (COMP 502 and ECON 310 are cross-listed as STAT 502 and STAT 376).' },
     ]},
     { type: 'choose', name: 'Senior Capstone', count: 1, from: ['DSCI 435', 'COMP 449', 'STAT 450'] },
   ],

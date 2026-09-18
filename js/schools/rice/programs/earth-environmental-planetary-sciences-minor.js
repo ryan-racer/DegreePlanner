@@ -7,8 +7,10 @@ export default {
   url: 'https://ga.rice.edu/programs-study/departments-programs/natural-sciences/earth-environmental-planetary-sciences/earth-environmental-planetary-sciences-minor/',
   hours: 19,
   notes: [
-    'At least 5 courses (15 credit hours) must be at the 300 level or above.',
     'EEPS 32x courses not used for the core may count as electives.',
+  ],
+  constraints: [
+    { type: 'atLeast', count: 5, from: [{ dept: '*', min: 300 }], label: 'At least 5 courses at the 300 level or above' },
   ],
   requirements: [
     { type: 'group', name: 'Core Requirements', requirements: [

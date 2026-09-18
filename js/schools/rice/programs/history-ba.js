@@ -7,10 +7,12 @@ export default {
   url: 'https://ga.rice.edu/programs-study/departments-programs/humanities/history/history-ba/',
   hours: 30,
   notes: [
-    'At least 6 of the 10 major courses must be departmental (HIST) courses.',
     'Geographical Fields courses must come from 3 different fields (Europe and Russia; Northern America; Africa; Asia and Oceania; Latin America and the Caribbean; Middle East; Transnational/Comparative/World).',
     'A single course may satisfy the Premodern (or Thematic) field and one other field; if so, an additional elective is required so the major still totals 10 courses.',
     'HIST 403 and HIST 404 do not count as Electives or Seminars; HIST 390 may count only once. AP/IB/A-level credit (HIST 103, 105, 107) does not count toward the major.',
+  ],
+  constraints: [
+    { type: 'atLeast', count: 6, from: [{ dept: 'HIST' }], label: 'At least 6 of the 10 major courses must be departmental (HIST) courses' },
   ],
   requirements: [
     { type: 'group', name: 'Core Requirements', requirements: [

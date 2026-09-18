@@ -11,6 +11,9 @@ export default {
     'Additional Historical Foundations or Diverse Traditions courses may count as electives, but no course counts toward both.',
     'Up to 1 elective (3 credit hours) may be from outside ENGL with advisor approval.',
   ],
+  constraints: [
+    { type: 'atLeast', count: 3, from: [{ dept: '*', min: 300 }], label: 'At least 3 courses at the 300 level or above' },
+  ],
   requirements: [
     { type: 'course', name: 'Core Requirement', options: ['ENGL 200'] },
     { type: 'choose', name: 'Historical Foundations', count: 1, from: [

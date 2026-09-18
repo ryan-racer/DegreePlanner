@@ -10,7 +10,7 @@ export default {
     'Students must pass the Piano Proficiency Exam.',
     'Individual study and ensemble are repeated each semester: at least 6 semesters of concentration instrument/voice and 5 semesters of ensemble. The senior thesis is 2 semesters of MUSI 449.',
     'Foreign language: one year (course numbers 141 and 142) in any language, or equivalency by university exam; German is highly recommended.',
-    'At least 16 courses (57 hours) at the 300 level or above. Minimum major GPA of 2.00.',
+    'Minimum major GPA of 2.00.',
   ],
   requirements: [
     { type: 'group', name: 'Music Theory', requirements: [
@@ -36,5 +36,8 @@ export default {
       ]},
     ]},
     { type: 'choose', name: 'Senior Thesis', count: 2, from: ['MUSI 449'], note: 'Two semesters of MUSI 449.' },
+  ],
+  constraints: [
+    { type: 'atLeast', count: 16, from: [{ dept: '*', min: 300 }], label: 'At least 16 courses (57 hours) at the 300 level or above' },
   ],
 };

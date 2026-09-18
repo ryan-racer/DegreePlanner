@@ -7,7 +7,6 @@ export default {
   url: 'https://ga.rice.edu/programs-study/departments-programs/humanities/philosophy/philosophy-ba/',
   hours: 30,
   notes: [
-    'At most 2 courses at the 100 level may count toward the major.',
     'PHIL 498 and PHIL 499 (senior thesis / departmental honors) are in addition to major requirements and do not fulfill Elective Requirements.',
   ],
   requirements: [
@@ -26,5 +25,8 @@ export default {
     ]},
     { type: 'choose', name: 'Elective Requirements', count: 3, from: [{ dept: 'PHIL', exclude: ['PHIL 498', 'PHIL 499'] }],
       note: 'Additional departmental (PHIL) courses.' },
+  ],
+  constraints: [
+    { type: 'atMost', count: 2, from: [{ dept: '*', max: 199 }], label: 'At most 2 courses at the 100 level' },
   ],
 };

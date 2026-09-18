@@ -11,7 +11,7 @@ export default {
     'MATH 220 may substitute for MATH 211. MATH 212 is strongly recommended for physical/theoretical chemistry or graduate study.',
     'Chemistry students may enroll in BIOS 301 without BIOS 201 with instructor approval.',
     'Advanced coursework means CHEM lecture courses at the 400 level or above; courses in other departments with substantial chemistry content may count with approval of the Director of Undergraduate Studies.',
-    'Research courses require instructor permission; CHEM 391 should be completed before the end of the junior year. CHEM 700 may count for at most 2 credit hours of research.',
+    'Research courses require instructor permission; CHEM 391 should be completed before the end of the junior year.',
   ],
   requirements: [
     {
@@ -89,5 +89,8 @@ export default {
       count: 3,
       from: ['BIOS 302', { dept: 'CHEM', min: 400, exclude: ['CHEM 491', 'CHEM 492', 'CHEM 493', 'CHEM 700'] }],
     },
+  ],
+  constraints: [
+    { type: 'atMost', hours: 2, from: ['CHEM 700'], among: ['2'], label: 'At most 2 credit hours of CHEM 700 toward research' },
   ],
 };

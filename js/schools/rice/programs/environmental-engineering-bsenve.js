@@ -15,6 +15,7 @@ export default {
   notes: [
     'Area of Specialization: 10 courses (30 hours) total - 4 in the chosen area and 2 from each of the other three areas. At least 7 of the 10 must be CEVE courses. Other approved CEVE courses may count in the chosen area.',
     'PHYS 141 credit is not eligible for the major.',
+    'Free electives fill out the 124 degree hours (no set number is required by the major). Suggested electives: ANTH 320, BIOS 271, BIOS 374, BIOS 559, CHBE 382, EEPS 434, EEPS 436, ENST 210, ENST 250, ENST 301, ENST 313, ENST 315, ENST 322, ENST 332, ENST 415, ENST 437, ENST 480, HEAL 375, STAT 485.',
   ],
   requirements: [
     { type: 'all', name: 'General Math and Science Requirements', items: [

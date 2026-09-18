@@ -7,8 +7,10 @@ export default {
   url: 'https://ga.rice.edu/programs-study/departments-programs/humanities/latin-american-latinx-studies/latin-american-latinx-studies-minor/',
   hours: 18,
   notes: [
-    'Up to 2 courses at the 100 level (including the Core Requirement LALX 158 / SPAN 158) may count toward the minor.',
     'Study abroad and coursework in Spanish, Portuguese, French, or Indigenous languages are encouraged but not required.',
+  ],
+  constraints: [
+    { type: 'atMost', count: 2, from: [{ dept: '*', max: 199 }], label: 'No more than 2 courses at the 100 level (including LALX 158 / SPAN 158)' },
   ],
   requirements: [
     { type: 'course', name: 'Core Requirement', options: ['LALX 158', 'SPAN 158'] },

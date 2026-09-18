@@ -12,7 +12,7 @@ python3 tools/extract-course-details.py "$WORK"
 node tools/gen-catalog.mjs "$WORK/catalog.json"
 node tools/gen-crosslist.mjs "$WORK/crosslist.json"
 python3 tools/gen-course-data.py "$WORK/descriptions.json" "$WORK/sched"
-python3 tools/gen-schedule.py "$WORK/sched" "$WORK/descriptions.json" $(ls "$WORK/sched" | sed -E 's/.*_([0-9]{6})\.html/\1/' | sort -u)
+python3 tools/gen-schedule.py "$WORK/sched" "$WORK/descriptions.json" $(ls "$WORK/sched" | sed -E 's/.*_([0-9]{6})\.html/\1/' | sort -u | tail -4)
 node tools/gen-index.mjs rice
 node tools/validate.mjs && node tools/smoke.mjs
 echo "Done. Review raw/*.json in $WORK for catalog changes that need program-file edits."
