@@ -29,11 +29,10 @@ export function programCard(result, { expanded, declared, school, variant = 'row
           ${p.kind !== 'major' ? `<span class="badge badge-minor">${esc(p.kind)}</span>` : ''}
           ${done ? '<span class="badge badge-done">Complete</span>' : ''}
         </div>
-        <div class="mt-0.5 truncate text-xs text-zinc-500">${esc(p.school)}${p.hours ? ` · ${p.hours} hrs` : ''} · ${n} course${n === 1 ? '' : 's'} apply</div>
+        <div class="mt-0.5 truncate text-xs text-zinc-500" title="${esc(p.school)}">${p.hours ? `${p.hours} hrs · ` : ''}${n} course${n === 1 ? '' : 's'} apply</div>
       </div>
-      <div class="hidden sm:block">
+      <div class="hidden sm:block" title="${pct}% complete">
         <div class="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"><div class="h-full rounded-full ${done ? 'bg-emerald-500' : 'bg-blue-600 dark:bg-blue-500'}" style="width:${pct}%"></div></div>
-        <div class="mt-1 text-right font-mono text-[11px] tabular-nums text-zinc-500">${pct}%</div>
       </div>
       <div class="text-right">
         <div class="text-lg font-semibold tabular-nums leading-none">${done ? icon('i-check', 'inline size-5 text-emerald-600') : result.remaining}</div>
@@ -43,12 +42,11 @@ export function programCard(result, { expanded, declared, school, variant = 'row
     </button>
     ${expanded ? `<div class="border-t border-zinc-200 px-4 pb-5 pt-3 dark:border-zinc-800">
       <div class="mb-2 flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-xs">
-        ${declared && !done ? '<span class="mr-auto text-zinc-500">Department approved a different course? Use <span class="font-medium text-blue-700 dark:text-blue-400">Substitute</span> on any open slot.</span>' : ''}
         <a class="inline-flex items-center gap-1 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" href="${esc(p.url)}" target="_blank" rel="noopener">Catalog page ${icon('i-external', 'size-3')}</a>
         <a class="font-medium text-blue-700 hover:underline dark:text-blue-400" href="#" data-action="${declared ? 'undeclare' : 'declare'}" data-id="${esc(p.id)}">${declared ? 'Remove from my programs' : 'Add to my programs'}</a>
       </div>
       ${policyNotes(result, school)}
-      ${p.catalogNote ? `<p class="${p.catalogExact ? 'mb-2 text-xs text-zinc-500' : NOTE}">${esc(p.catalogNote)}</p>` : ''}
+      ${p.catalogNote ? `<p class="${NOTE}">${esc(p.catalogNote)}</p>` : ''}
       ${result.tree.map((node) => nodeHtml(node, school, 0)).join('')}
       ${result.constraints?.length ? `<div class="mt-4"><div class="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Rules across sections</div>${result.constraints.map((k) => `<div class="flex items-center gap-2 py-1 text-sm">${icon(k.satisfied ? 'i-check' : 'i-circle', k.satisfied ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500')}<span class="min-w-0 flex-1 ${k.satisfied ? '' : 'text-zinc-700 dark:text-zinc-300'}">${esc(k.constraint.label || '')}</span><span class="font-mono text-[11px] tabular-nums ${k.satisfied ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">${k.have % 1 ? k.have.toFixed(1) : k.have} / ${k.constraint.type === 'atMost' ? 'max ' : ''}${k.need}${k.constraint.hours != null ? ' hrs' : ''}</span></div>`).join('')}</div>` : ''}
       ${p.notes?.length ? `<div class="mt-5 rounded-md bg-zinc-50 px-3 py-2.5 text-xs leading-5 text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-400"><p class="font-medium text-zinc-700 dark:text-zinc-300">Rules not modeled automatically</p><ul class="mt-1 list-disc space-y-0.5 pl-4">${p.notes.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
@@ -69,7 +67,9 @@ function heading(n, depth) {
     ? 'mt-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 first:mt-1'
     : 'mt-2.5 text-sm font-medium';
   const stat = n.satisfied ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400';
-  return `<div class="${cls} flex items-baseline justify-between gap-3"><span>${esc(n.node.name)}</span><span class="font-mono text-[11px] font-normal tabular-nums ${stat}">${statusText(n)}</span></div>`;
+  // A one-course requirement already shows a check or an open circle on its only row; "1 / 1" adds nothing.
+  const count = n.kind !== 'hours' && n.total === 1 ? '' : `<span class="font-mono text-[11px] font-normal tabular-nums ${stat}">${statusText(n)}</span>`;
+  return `<div class="${cls} flex items-baseline justify-between gap-3"><span>${esc(n.node.name)}</span>${count}</div>`;
 }
 
 function nodeHtml(n, school, depth) {
