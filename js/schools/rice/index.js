@@ -3,7 +3,7 @@ import crosslist from './crosslist.js';
 import catalog from './catalog.js';
 import sample from './sample.js';
 import scheduleTerms from './schedule.js';
-import sectionTerms from './section-terms.js';
+import sectionTerms, { generated as sectionDataDate } from './section-terms.js';
 
 export default {
   id: 'rice',
@@ -26,6 +26,7 @@ export default {
   // Section-level schedule data (meeting times) per term, fetched lazily by js/ui/schedule.js.
   sectionDataPath: 'data/rice/schedule/',
   sectionTerms,
+  sectionDataDate,
   // University distribution requirement: courses per group.
   distribution: { groups: ['I', 'II', 'III'], coursesPerGroup: 3, hoursPerGroup: 9 },
   programs,

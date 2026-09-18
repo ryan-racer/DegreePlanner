@@ -304,9 +304,10 @@ function renderTimeline() {
   const pastCols = past.map(([term, items]) => {
     const h = items.filter(({ c }) => c.status !== 'failed').reduce((a, { c }) => a + hoursOf(c), 0);
     const ip = items.every(({ c }) => c.status === 'in-progress');
+    const tg = gpa(items.map(({ c }) => c));
     const body = items.sort((a, b) => a.c.code.localeCompare(b.c.code)).map(({ c, i }) => chip(c, { index: i })).join('') +
       (state.editing ? addForm('add-course', `data-term="${esc(term === 'Transfer credit' || term === 'Other' ? '' : term)}" data-source="${term === 'Transfer credit' ? 'transfer' : 'manual'}"`) : '');
-    return col(esc(term), `${h % 1 ? h.toFixed(1) : h} hr${ip ? ' · IP' : ''}`, body, 'border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40', h > 20);
+    return col(esc(term), `${h % 1 ? h.toFixed(1) : h} hr${ip ? ' · IP' : tg && term !== 'Transfer credit' ? ` · ${tg}` : ''}`, body, 'border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40', h > 20);
   });
 
   const planCols = state.plan.map((t, i) => ({ t, i })).sort((a, b) => termKey(a.t.term) - termKey(b.t.term)).map(({ t, i }) => {

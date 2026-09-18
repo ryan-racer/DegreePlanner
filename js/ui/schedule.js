@@ -160,6 +160,7 @@ export async function render() {
   const term = currentTerm();
   const root = $('[data-panel="schedule"]');
   if (!term) { root.innerHTML = '<p class="text-sm text-zinc-500">No schedule data for this school yet.</p>'; return; }
+  if (ctx.school.sectionDataDate) $('#sched-asof').textContent = ` as of ${new Date(ctx.school.sectionDataDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
   $('#sched-term').innerHTML = (ctx.school.sectionTerms || []).map((t) => `<option value="${t}" ${t === term ? 'selected' : ''}>${termName(t)}</option>`).join('');
   const sections = await loadSections(term);
   if (ctx.state.scheduleTerm !== term) return;
