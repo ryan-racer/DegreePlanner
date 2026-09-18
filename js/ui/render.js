@@ -1,6 +1,6 @@
 // Renders audit results as HTML strings. All user data is escaped.
 import { specLabel } from '../engine/match.js';
-import { gpaOf } from '../engine/grades.js';
+import { programNotes } from '../engine/degree.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const icon = (id, cls = '') => `<svg class="size-4 shrink-0 ${cls}" aria-hidden="true"><use href="#${id}"/></svg>`;
@@ -9,20 +9,7 @@ const icon = (id, cls = '') => `<svg class="size-4 shrink-0 ${cls}" aria-hidden=
  * One program row. `variant` is 'card' (declared programs, standalone bordered block) or 'row' (explorer list item).
  */
 const NOTE = 'mb-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200';
-/** University rules that apply to every major and minor: Pass/Fail grades get uncovered, a minimum GPA, upper-level work in residence. */
-function policyNotes(result, school) {
-  const out = [], cfg = school?.degree || {}, used = result.usedCourses;
-  const pf = result.passFailUsed || [];
-  if (pf.length) out.push(`${pf.join(', ')} ${pf.length === 1 ? 'was' : 'were'} taken Pass/Fail. ${pf.length === 1 ? 'It counts' : 'They count'} here because the Registrar uncovers the letter grade, on your request or automatically at the final degree audit. Until then DegreeWorks lists ${pf.length === 1 ? 'it' : 'them'} as still needed. An uncovered grade enters your GPA and cannot be covered again.`);
-  const g = gpaOf(used.filter((c) => c.source !== 'transfer'), school?.defaultHours);
-  if (cfg.programMinGpa && g != null && g < cfg.programMinGpa) out.push(`GPA across the courses applied here is ${g.toFixed(2)}; at least ${cfg.programMinGpa.toFixed(2)} is required.`);
-  if (cfg.residency && result.program.kind === 'major') {
-    const up = used.filter((c) => Number((c.code.match(/(\d{3})[A-Z]?$/) || [])[1]) >= (cfg.upperLevel || 300));
-    const all = up.reduce((a, c) => a + (c.hours || 0), 0), away = up.filter((c) => c.source === 'transfer').reduce((a, c) => a + (c.hours || 0), 0);
-    if (away > 0 && away >= all / 2) out.push(`${away} of the ${all} upper-level hours applied here are transfer credit. More than half of a major's upper-level work must be taken in residence.`);
-  }
-  return out.map((t) => `<p class="${NOTE}">${esc(t)}</p>`).join('');
-}
+const policyNotes = (result, school) => programNotes(result, school).map((t) => `<p class="${NOTE}">${esc(t)}</p>`).join('');
 
 export function programCard(result, { expanded, declared, school, variant = 'row' }) {
   EDIT = declared ? result.program.id : null;

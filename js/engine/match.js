@@ -14,6 +14,12 @@ export function splitCode(code) {
   return m ? { dept: m[1], num: Number(m[2]), suffix: m[3] } : null;
 }
 
+/** Course number of a code, tolerating a letter suffix ("PHYS 101L" -> 101); 0 when there is none. */
+export const courseLevel = (code) => Number((code.match(/(\d{3})[A-Z]?$/) || [])[1] || 0);
+export const deptOf = (code) => code.split(' ')[0];
+/** Distribution group ("I", "II", "III") from a course's catalog details, or ''. */
+export const distGroupOf = (details) => (details?.dist || '').replace('Distribution Group ', '');
+
 /** All codes a course counts as: its own code plus any cross-listings. */
 export function aliasesFor(code, crosslist) {
   const out = new Set([code]);

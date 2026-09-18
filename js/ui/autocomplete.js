@@ -2,6 +2,7 @@
 // Matches on code prefix ("comp 4") or title words ("machine learn"); Enter or click fills the input and submits.
 
 import { esc, titleCase } from './render.js';
+import { courseLevel } from '../engine/match.js';
 
 let list, index = [], active = null, cursor = -1, school;
 
@@ -44,7 +45,7 @@ function update(input) {
     const words = q.split(' ').filter(Boolean);
     const byTitle = index.filter((c) => !hits.includes(c) && words.every((w) => c.lower.includes(w)));
     // Undergraduate courses first, then by code.
-    byTitle.sort((a, b) => (Number(a.code.slice(-3)) >= 500) - (Number(b.code.slice(-3)) >= 500) || a.code.localeCompare(b.code));
+    byTitle.sort((a, b) => (courseLevel(a.code) >= 500) - (courseLevel(b.code) >= 500) || a.code.localeCompare(b.code));
     hits = hits.concat(byTitle);
   }
   hits = hits.slice(0, 8);

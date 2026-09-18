@@ -19,7 +19,6 @@ const DEFAULT_HINTS = {
   major: /\bMajors?\s*:\s*([^\n]+)/i,
   minor: /\bMinors?\s*:\s*([^\n]+)/i,
   skipLine: /\b(Still\s+needed|Not\s+yet\s+taken|Prerequisite)\b/i,
-  ignore: null, // regex for codes to drop
   generic: null, // regex for placeholder codes (unarticulated transfer credit): each row is kept as general credit
 };
 
@@ -57,8 +56,7 @@ export function parseTranscript(text, school = {}) {
     const mn = line.match(hints.minor); if (mn) pushUnique(declared.minors, mn[1]);
     if (hints.skipLine.test(line)) { skippedStillNeeded++; continue; }
 
-    const codes = [...line.toUpperCase().matchAll(CODE_RE)].map((m) => ({ code: `${m[1]} ${m[2]}`, index: m.index, end: m.index + m[0].length }))
-      .filter((c) => !(hints.ignore && hints.ignore.test(c.code)));
+    const codes = [...line.toUpperCase().matchAll(CODE_RE)].map((m) => ({ code: `${m[1]} ${m[2]}`, index: m.index, end: m.index + m[0].length }));
     if (!codes.length) continue;
 
     if (codes.length === 1) {

@@ -22,6 +22,7 @@ export function prepareCourses(courses, school, opts = {}) {
       hours: Number.isFinite(c.hours) && c.hours >= 0 ? c.hours : (school.catalog?.[c.code]?.hours ?? school.defaultHours ?? DEFAULT_HOURS),
       aliases: aliasesFor(c.code, school.crosslist),
       passFail: (school.passFailGrades || []).includes(c.grade),
+      generic: !!c.generic || !!school.transcript?.generic?.test(c.code), // transfer credit with no equivalent course
     }));
 }
 

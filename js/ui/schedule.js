@@ -270,8 +270,13 @@ function renderSelected(selected, sections) {
 }
 
 /** Distribution progress from the university requirements audit: { have, need, cfg } keyed by group. */
-export async function distributionSummary(courses, school = ctx?.school) {
-  if (!school?.degree?.distribution) return null;
+let distMemo = null; // { courses, school, result }: renderCandidates runs on every keystroke, the audit need not
+export function distributionSummary(courses, school = ctx?.school) {
+  if (!school?.degree?.distribution) return Promise.resolve(null);
+  if (distMemo?.courses !== courses || distMemo.school !== school) distMemo = { courses, school, result: computeDistribution(courses, school) };
+  return distMemo.result;
+}
+async function computeDistribution(courses, school) {
   const d = await auditDegree({ school, courses, loadDetails: (code) => courseDetails(school, code) });
   const have = {}, need = {};
   for (const [g, v] of Object.entries(d.dist)) { have[g] = { count: v.have, codes: v.courses.map((c) => c.code), detail: v.detail }; need[g] = v.need; }

@@ -2,7 +2,7 @@
 // courses that match, that have run in that term's season, and whose prerequisites will be met by then.
 
 import { loadDept, prereqStatus } from '../data/courseinfo.js';
-import { courseMatchesSpec } from '../engine/match.js';
+import { courseMatchesSpec, courseLevel, deptOf } from '../engine/match.js';
 import { seasonPattern, termCodeFor } from '../engine/autoplan.js';
 
 let attrsPromise = null;
@@ -26,7 +26,7 @@ export async function suggestForPlaceholder({ school, placeholder, termName, cod
   } else if (placeholder.kind === 'diversity') {
     pool = (await loadAttributes(school)).ad || [];
   } else return [];
-  pool = pool.filter((code) => !allCodes.has(code) && Number(code.slice(-3)) < 500 && !(placeholder.avoidDepts || []).includes(code.split(' ')[0]));
+  pool = pool.filter((code) => !allCodes.has(code) && courseLevel(code) < 500 && !(placeholder.avoidDepts || []).includes(deptOf(code)));
 
   // Offering evidence: real sections for that term when published, otherwise the latest term of the same season.
   const suffix = { Fall: '10', Spring: '20', Summer: '30' }[season];
@@ -48,7 +48,7 @@ export async function suggestForPlaceholder({ school, placeholder, termName, cod
     if (!running && pat[season] === false) continue;
     const hours = school.catalog?.[code]?.hours ?? 3;
     if (placeholder.kind !== 'pattern' && hours < 3) continue;
-    out.push({ code, title: school.catalog?.[code]?.title || '', hours, note: proxy === exact ? `has sections in ${termName}` : pat.label, rank: (pat[season] ? 0 : 1) * 1000 + Number(code.slice(-3)) });
+    out.push({ code, title: school.catalog?.[code]?.title || '', hours, note: proxy === exact ? `has sections in ${termName}` : pat.label, rank: (pat[season] ? 0 : 1) * 1000 + courseLevel(code) });
   }
   return out.sort((a, b) => a.rank - b.rank || a.code.localeCompare(b.code)).slice(0, limit);
 }

@@ -2,7 +2,7 @@
 // depend on each other. `school` is a live binding: call setSchool() to change it.
 import { schools, getSchool } from './schools/index.js';
 import { esc } from './ui/render.js';
-import { POINTS } from './engine/grades.js';
+import { POINTS, gpaOf } from './engine/grades.js';
 
 export const $ = (sel) => document.querySelector(sel);
 export let school = getSchool(localStorage.getItem('rf.school') || schools[0].id);
@@ -44,18 +44,19 @@ export function save() {
 
 /** Coerce course and plan records read from storage or a backup file, so a malformed file cannot break rendering. */
 const STATUSES = ['completed', 'in-progress', 'failed', 'planned'];
+const str = (v, n, fallback) => (typeof v === 'string' ? v.slice(0, n) : fallback);
+const num = (v) => (Number.isFinite(v) ? v : undefined);
+const records = (list) => (Array.isArray(list) ? list : []).filter((r) => r && typeof r === 'object');
 export function cleanCourses(list) {
-  return (Array.isArray(list) ? list : []).filter((c) => c && typeof c === 'object' && typeof c.code === 'string' && c.code.trim()).map((c) => ({
-    ...c, code: c.code.trim().slice(0, 40), title: typeof c.title === 'string' ? c.title.slice(0, 200) : '', grade: typeof c.grade === 'string' ? c.grade.slice(0, 4) : '',
-    term: typeof c.term === 'string' ? c.term.slice(0, 40) : '', hours: Number.isFinite(c.hours) ? c.hours : undefined, status: STATUSES.includes(c.status) ? c.status : 'completed',
+  return records(list).filter((c) => typeof c.code === 'string' && c.code.trim()).map((c) => ({
+    ...c, code: c.code.trim().slice(0, 40), title: str(c.title, 200, ''), grade: str(c.grade, 4, ''), term: str(c.term, 40, ''),
+    hours: num(c.hours), status: STATUSES.includes(c.status) ? c.status : 'completed',
   }));
 }
 export function cleanPlan(list) {
-  const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : undefined);
   // Planned entries have no status, and placeholders ("a Group II course") have an empty code and a label.
-  const entry = (c) => ({ ...c, code: str(c.code, 40) ?? '', label: str(c.label, 120), why: str(c.why, 400), title: str(c.title, 200), hours: Number.isFinite(c.hours) ? c.hours : undefined });
-  return (Array.isArray(list) ? list : []).filter((t) => t && typeof t === 'object' && typeof t.term === 'string')
-    .map((t) => ({ ...t, term: t.term.slice(0, 40), courses: (Array.isArray(t.courses) ? t.courses : []).filter((c) => c && typeof c === 'object').map(entry) }));
+  const entry = (c) => ({ ...c, code: str(c.code, 40, ''), label: str(c.label, 120), why: str(c.why, 400), title: str(c.title, 200), hours: num(c.hours) });
+  return records(list).filter((t) => typeof t.term === 'string').map((t) => ({ ...t, term: t.term.slice(0, 40), courses: records(t.courses).map(entry) }));
 }
 
 export function load() {
@@ -114,11 +115,7 @@ export function gradeClass(c) {
 
 export function hoursOf(c) { return Number.isFinite(c.hours) && c.hours >= 0 ? c.hours : (school.catalog?.[c.code]?.hours ?? school.defaultHours ?? 3); }
 
-export function gpa(courses) {
-  let pts = 0, hrs = 0;
-  for (const c of courses) if (c.status === 'completed' && POINTS[c.grade] != null) { pts += POINTS[c.grade] * hoursOf(c); hrs += hoursOf(c); }
-  return hrs ? (pts / hrs).toFixed(2) : null;
-}
+export function gpa(courses) { return gpaOf(courses.map((c) => ({ ...c, hours: hoursOf(c) })))?.toFixed(2) ?? null; }
 
 const SEASONS = { Spring: 1, Summer: 2, Fall: 3 };
 

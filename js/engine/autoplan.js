@@ -12,6 +12,7 @@
 
 import { prepareCourses, auditProgram, suggestCourses } from './audit.js';
 import { prereqStatus, prereqNeeds } from '../data/courseinfo.js';
+import { courseLevel, distGroupOf } from './match.js';
 
 const SEASON_CODE = { Fall: '10', Spring: '20', Summer: '30' };
 
@@ -193,7 +194,7 @@ export async function autoPlan({ school, programs, courses, plan, hoursPerTerm, 
         if (found) break;
       }
       if (!found) { cand.reason = reason; cand.needs = prereqNeeds(d?.pre, everPlanned()).filter((c) => school.catalog?.[c]); continue; }
-      const rank = [found.i, -unlocks(cand.code), -(cand.score || 0), -(found.rel ?? 0.5), Number(cand.code.slice(-3)) || 0];
+      const rank = [found.i, -unlocks(cand.code), -(cand.score || 0), -(found.rel ?? 0.5), courseLevel(cand.code)];
       const better = !best || rank.some((v, k) => v !== best.rank[k] && rank.slice(0, k).every((x, j) => x === best.rank[j]) && v < best.rank[k]);
       if (better) best = { cand, found, rank, h, d };
     }
@@ -233,7 +234,7 @@ export async function autoPlan({ school, programs, courses, plan, hoursPerTerm, 
   for (const pt of patterns) for (let k = 0; k < (pt.count || 1); k++) addPlaceholder(pt.label.replace(/ course$/, ' elective'), 3, `Your choice: any ${pt.label} for ${pt.program.replace(/\s*\(.*\)$/, '')}`, { kind: 'pattern', spec: pt.spec });
   // Re-check distribution after the concrete courses, since some of them carry a distribution group.
   const distLeft = { ...distNeed };
-  for (const p of placed) { const g = ((await details(p.code))?.dist || '').replace('Distribution Group ', ''); if (distLeft[g] > 0) distLeft[g]--; }
+  for (const p of placed) { const g = distGroupOf(await details(p.code)); if (distLeft[g] > 0) distLeft[g]--; }
   for (const [g, n] of Object.entries(distLeft)) for (let k = 0; k < n; k++) addPlaceholder(`Distribution ${g} course`, 3, distAvoid[g]?.length ? `Your choice: a Distribution Group ${g} course outside ${distAvoid[g].join(', ')} (two departments are required)` : `Your choice: any Distribution Group ${g} course`, { kind: 'dist', dist: g, ...(distAvoid[g]?.length ? { avoidDepts: distAvoid[g] } : {}) });
   // Remaining university requirements, then free electives up to the degree's hour total.
   if (degreeNeed) {
