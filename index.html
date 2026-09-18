@@ -34,16 +34,16 @@
 
 <header class="sticky top-0 z-20 border-b border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
   <div class="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4">
-    <div class="flex items-center gap-3">
-      <a href="./" class="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+    <div class="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-3">
+      <a href="./" class="flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-tight">
         <span class="inline-flex size-6 items-center justify-center rounded bg-zinc-900 font-mono text-[13px] font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">D</span>
         DegreePlanner
       </a>
-      <span class="text-zinc-300 dark:text-zinc-700">/</span>
-      <select id="school-select" class="field h-8 border-transparent bg-transparent pr-7 font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="School"></select>
-      <select id="year-select" class="field h-8 border-transparent bg-transparent pr-7 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800" aria-label="Catalog year" title="Requirements follow the catalog of the year you matriculated" hidden></select>
+      <span class="hidden text-zinc-300 sm:inline dark:text-zinc-700">/</span>
+      <select id="school-select" class="field h-8 min-w-0 shrink truncate border-transparent bg-transparent pr-7 font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="School"></select>
+      <select id="year-select" class="field h-8 min-w-0 shrink truncate border-transparent bg-transparent pr-7 text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800" aria-label="Catalog year" title="Requirements follow the catalog of the year you matriculated" hidden></select>
     </div>
-    <div class="flex items-center gap-1">
+    <div class="flex shrink-0 items-center gap-1">
       <span class="mr-2 hidden text-xs text-zinc-500 md:inline">Nothing leaves your browser</span>
       <button id="theme-toggle" class="btn-icon" type="button" aria-label="Toggle dark mode">
         <svg class="size-[18px] dark:hidden"><use href="#i-moon"/></svg>

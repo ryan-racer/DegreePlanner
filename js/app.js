@@ -31,6 +31,7 @@ function initChrome() {
   const sel = $('#school-select');
   sel.innerHTML = schools.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
   sel.value = school.id;
+  sel.classList.toggle('max-sm:hidden', schools.length < 2); // nothing to choose yet; the footer names the school
   sel.addEventListener('change', () => {
     setSchool(getSchool(sel.value));
     setCourseCardSchool(school);
