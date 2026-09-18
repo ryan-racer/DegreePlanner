@@ -42,10 +42,26 @@ export function save() {
   } catch { /* storage unavailable */ }
 }
 
+/** Coerce course and plan records read from storage or a backup file, so a malformed file cannot break rendering. */
+const STATUSES = ['completed', 'in-progress', 'failed', 'planned'];
+export function cleanCourses(list) {
+  return (Array.isArray(list) ? list : []).filter((c) => c && typeof c === 'object' && typeof c.code === 'string' && c.code.trim()).map((c) => ({
+    ...c, code: c.code.trim().slice(0, 40), title: typeof c.title === 'string' ? c.title.slice(0, 200) : '', grade: typeof c.grade === 'string' ? c.grade.slice(0, 4) : '',
+    term: typeof c.term === 'string' ? c.term.slice(0, 40) : '', hours: Number.isFinite(c.hours) ? c.hours : undefined, status: STATUSES.includes(c.status) ? c.status : 'completed',
+  }));
+}
+export function cleanPlan(list) {
+  const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : undefined);
+  // Planned entries have no status, and placeholders ("a Group II course") have an empty code and a label.
+  const entry = (c) => ({ ...c, code: str(c.code, 40) ?? '', label: str(c.label, 120), why: str(c.why, 400), title: str(c.title, 200), hours: Number.isFinite(c.hours) ? c.hours : undefined });
+  return (Array.isArray(list) ? list : []).filter((t) => t && typeof t === 'object' && typeof t.term === 'string')
+    .map((t) => ({ ...t, term: t.term.slice(0, 40), courses: (Array.isArray(t.courses) ? t.courses : []).filter((c) => c && typeof c === 'object').map(entry) }));
+}
+
 export function load() {
   try {
     const d = JSON.parse(localStorage.getItem(`rf.${school.id}`) || 'null');
-    if (d) { state.courses = d.courses || []; state.declared = d.declared || []; state.includeInProgress = d.includeInProgress !== false; state.includePlanned = d.includePlanned !== false; state.plan = Array.isArray(d.plan) ? d.plan : []; state.schedule = d.schedule && typeof d.schedule === 'object' ? d.schedule : {}; state.scheduleTerm = d.scheduleTerm || ''; state.overrides = d.overrides && typeof d.overrides === 'object' ? d.overrides : {}; state.scheduleHidden = d.scheduleHidden && typeof d.scheduleHidden === 'object' ? d.scheduleHidden : {}; state.autoTarget = d.autoTarget || ''; state.catalogYear = d.catalogYear || ''; }
+    if (d) { state.courses = cleanCourses(d.courses); state.declared = Array.isArray(d.declared) ? d.declared.filter((id) => typeof id === 'string') : []; state.includeInProgress = d.includeInProgress !== false; state.includePlanned = d.includePlanned !== false; state.plan = cleanPlan(d.plan); state.schedule = d.schedule && typeof d.schedule === 'object' ? d.schedule : {}; state.scheduleTerm = d.scheduleTerm || ''; state.overrides = d.overrides && typeof d.overrides === 'object' ? d.overrides : {}; state.scheduleHidden = d.scheduleHidden && typeof d.scheduleHidden === 'object' ? d.scheduleHidden : {}; state.autoTarget = d.autoTarget || ''; state.catalogYear = d.catalogYear || ''; }
     state.expanded = new Set(state.declared);
   } catch { /* ignore */ }
 }

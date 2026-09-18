@@ -1,6 +1,6 @@
 // Application shell: wires the header, transcript import, tabs, and the Audit tab, and boots the UI modules.
 import { schools, getSchool } from './schools/index.js';
-import { $, state, school, setSchool, runtime, hooks, save, load, setStatus, activeYear, activePrograms, inferCatalogYear, inferredExact } from './core.js';
+import { $, state, school, setSchool, runtime, hooks, save, load, cleanCourses, cleanPlan, setStatus, activeYear, activePrograms, inferCatalogYear, inferredExact } from './core.js';
 import { detectDeclared } from './import/declared.js';
 import { undoable } from './ui/undo.js';
 import { renderOverview } from './ui/overview.js';
@@ -111,9 +111,9 @@ function ingest(text, label = 'text') {
 /** Restore a backup produced by the Export button. */
 function restore(data, label) {
   if (data.school && data.school !== school.id) { setStatus(`This backup is for a different school (${data.school}).`, 'error'); return; }
-  state.courses = Array.isArray(data.courses) ? data.courses : [];
+  state.courses = cleanCourses(data.courses);
   state.declared = Array.isArray(data.declared) ? data.declared.filter((id) => activePrograms().some((p) => p.id === id)) : [];
-  state.plan = Array.isArray(data.plan) ? data.plan : [];
+  state.plan = cleanPlan(data.plan);
   state.schedule = data.schedule && typeof data.schedule === 'object' ? data.schedule : {};
   state.overrides = data.overrides && typeof data.overrides === 'object' ? data.overrides : {};
   state.includeInProgress = data.includeInProgress !== false;
