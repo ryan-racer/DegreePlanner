@@ -52,6 +52,8 @@ export async function auditDegree({ school, courses, programs = [], loadDetails 
     upper: { have: upper, need: cfg.upperLevelHours || 0, satisfied: upper >= (cfg.upperLevelHours || 0) },
     items, dist,
     distNeed: Object.fromEntries(Object.entries(dist).map(([g, v]) => [g, v.need])),
+    // When the count is met but every course is from one department, the extra course must come from another.
+    distAvoid: Object.fromEntries(Object.entries(dist).filter(([, v]) => v.detail).map(([g, v]) => [g, [...new Set(v.courses.map((c) => c.code.split(' ')[0]))]])),
     missing: items.filter((i) => !i.satisfied).map((i) => i.id),
   };
 }

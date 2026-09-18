@@ -194,7 +194,7 @@ async function runAutoPlan() {
     const result = await autoPlan({
       school, programs, courses: state.courses, plan: state.plan, overrides: state.overrides,
       hoursPerTerm: Number($('#auto-hours').value) || 16, graduateBy: $('#auto-target').value, includeSummers: $('#auto-summers').checked,
-      distNeed: deg ? deg.distNeed : {}, degreeNeed: deg ? { missing: deg.missing, hoursNeed: deg.hours.need } : null,
+      distNeed: deg ? deg.distNeed : {}, distAvoid: deg ? deg.distAvoid : {}, degreeNeed: deg ? { missing: deg.missing, hoursNeed: deg.hours.need } : null,
       loadDetails: (code) => courseDetails(school, code), loadSections,
     });
     undoable('Plan rebuilt by Auto-plan.', () => { state.plan = result.plan; });

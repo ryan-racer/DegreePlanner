@@ -84,7 +84,7 @@ export function inferGraduation(courses) {
 /**
  * @returns {Promise<{ plan, placed, placeholders, unplaced, satisfied, target, lastTerm, beyondTarget, plannedHours, totalHours, degreeHours }>}
  */
-export async function autoPlan({ school, programs, courses, plan, hoursPerTerm, graduateBy, loadDetails, loadSections, overrides = {}, distNeed = {}, degreeNeed = null, includeSummers = false }) {
+export async function autoPlan({ school, programs, courses, plan, hoursPerTerm, graduateBy, loadDetails, loadSections, overrides = {}, distNeed = {}, distAvoid = {}, degreeNeed = null, includeSummers = false }) {
   const cap = Math.min(Number(hoursPerTerm) || 16, school.maxTermHours || 18);
   const latest = courses.map((c) => c.term).filter(Boolean).sort((a, b) => termKey(b) - termKey(a))[0];
   const termNames = upcomingTerms(latest, includeSummers ? 20 : 14, includeSummers);
@@ -234,7 +234,7 @@ export async function autoPlan({ school, programs, courses, plan, hoursPerTerm, 
   // Re-check distribution after the concrete courses, since some of them carry a distribution group.
   const distLeft = { ...distNeed };
   for (const p of placed) { const g = ((await details(p.code))?.dist || '').replace('Distribution Group ', ''); if (distLeft[g] > 0) distLeft[g]--; }
-  for (const [g, n] of Object.entries(distLeft)) for (let k = 0; k < n; k++) addPlaceholder(`Distribution ${g} course`, 3, `Your choice: any Distribution Group ${g} course`, { kind: 'dist', dist: g });
+  for (const [g, n] of Object.entries(distLeft)) for (let k = 0; k < n; k++) addPlaceholder(`Distribution ${g} course`, 3, distAvoid[g]?.length ? `Your choice: a Distribution Group ${g} course outside ${distAvoid[g].join(', ')} (two departments are required)` : `Your choice: any Distribution Group ${g} course`, { kind: 'dist', dist: g, ...(distAvoid[g]?.length ? { avoidDepts: distAvoid[g] } : {}) });
   // Remaining university requirements, then free electives up to the degree's hour total.
   if (degreeNeed) {
     const cfg = school.degree || {};

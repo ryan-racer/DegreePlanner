@@ -26,7 +26,7 @@ export async function suggestForPlaceholder({ school, placeholder, termName, cod
   } else if (placeholder.kind === 'diversity') {
     pool = (await loadAttributes(school)).ad || [];
   } else return [];
-  pool = pool.filter((code) => !allCodes.has(code) && Number(code.slice(-3)) < 500);
+  pool = pool.filter((code) => !allCodes.has(code) && Number(code.slice(-3)) < 500 && !(placeholder.avoidDepts || []).includes(code.split(' ')[0]));
 
   // Offering evidence: real sections for that term when published, otherwise the latest term of the same season.
   const suffix = { Fall: '10', Spring: '20', Summer: '30' }[season];
