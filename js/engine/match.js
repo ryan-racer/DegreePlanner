@@ -77,3 +77,20 @@ export function collectExactCodes(nodes, out = new Set()) {
   }
   return out;
 }
+
+/** How many slots in the tree name each exact code. Used to spend heavily-referenced courses last. */
+export function countExactRefs(nodes, out = new Map()) {
+  for (const n of nodes || []) {
+    const slots = [];
+    if (n.type === 'course') slots.push(n.options || []);
+    if (n.type === 'all') for (const slot of n.items || []) slots.push(Array.isArray(slot) ? slot : [slot]);
+    if (n.type === 'choose' || n.type === 'hours') slots.push(n.from || []);
+    for (const specs of slots) for (const s of specs) {
+      if (typeof s === 'string') out.set(s, (out.get(s) || 0) + 1);
+      else if (s && s.courses) s.courses.forEach((c) => out.set(c, (out.get(c) || 0) + 1));
+    }
+    if (n.type === 'any') countExactRefs(n.options, out);
+    if (n.type === 'group') countExactRefs(n.requirements, out);
+  }
+  return out;
+}

@@ -242,6 +242,20 @@ function nextTermDefault() {
   const year = Math.floor(base / 10), season = base % 10;
   return season === 3 ? { season: 'Spring', year: year + 1 } : { season: 'Fall', year };
 }
+/** "Fall 2026" -> "202710" (Banner style: fall belongs to the next academic year). */
+function termCodeFor(name) {
+  const m = (name || '').match(/(Spring|Summer|Fall)\s+(\d{4})/i); if (!m) return null;
+  const season = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase(); const y = Number(m[2]);
+  return season === 'Fall' ? `${y + 1}10` : season === 'Spring' ? `${y}20` : `${y}30`;
+}
+/** Drop any scheduled section of `code` for the term named `termName`, so plan and schedule stay in step. */
+function unscheduleCourse(termName, code) {
+  const tc = termCodeFor(termName); if (!tc || !state.schedule?.[tc]) return;
+  const sections = scheduleSectionsCache.get(tc); if (!sections) return;
+  state.schedule[tc] = state.schedule[tc].filter((crn) => sections.find((x) => x.crn === crn)?.code !== code);
+}
+const scheduleSectionsCache = new Map();
+
 function ensureTerm() {
   if (!state.plan.length) { const d = nextTermDefault(); state.plan.push({ term: `${d.season} ${d.year}`, courses: [] }); }
   return state.plan[state.plan.length - 1];
@@ -271,6 +285,7 @@ function chip(c, { index, planned, termIndex }) {
         <option value="in-progress" ${c.status === 'in-progress' ? 'selected' : ''}>IP</option>
         <option value="failed" ${c.status === 'failed' ? 'selected' : ''}>Skip</option></select>`
       : badge ? `<span class="rounded px-1 font-mono text-[11px] font-medium leading-4 ${gradeClass(c)}">${esc(badge)}</span>` : ''}
+    ${planned && state.editing && state.plan.length > 1 ? `<select data-f="move" class="field h-5 w-16 px-1 text-[10px]" aria-label="Move ${esc(c.code)} to term" title="Move to another term"><option value="">Move…</option>${state.plan.map((t, ti) => ti === termIndex ? '' : `<option value="${ti}">${esc(t.term)}</option>`).join('')}</select>` : ''}
     ${editing ? `<button type="button" class="btn-icon -my-1 size-6 rounded" data-f="remove" aria-label="Remove ${esc(c.code)}"><svg class="size-3"><use href="#i-x"/></svg></button>` : ''}
   </div>`;
 }
@@ -352,6 +367,15 @@ function initTimeline() {
     save(); renderAll();
   });
   tl.addEventListener('change', (e) => {
+    if (e.target.dataset.f === 'move') {
+      const pl = e.target.closest('[data-planned]'); const from = state.plan[Number(pl.dataset.planned)]; const to = state.plan[Number(e.target.value)];
+      if (!from || !to) return;
+      const course = from.courses.find((c) => c.code === pl.dataset.code);
+      from.courses = from.courses.filter((c) => c !== course);
+      if (course?.fromSchedule) unscheduleCourse(from.term, course.code);
+      if (course && !to.courses.some((c) => c.code === course.code)) to.courses.push({ ...course, fromSchedule: false });
+      save(); renderAll(); return;
+    }
     if (e.target.dataset.f !== 'status') return;
     const c = state.courses[Number(e.target.closest('[data-i]').dataset.i)]; if (!c) return;
     c.status = e.target.value; save(); renderAll();
@@ -361,7 +385,7 @@ function initTimeline() {
     if (btn.dataset.f === 'remove-term') { state.plan.splice(Number(btn.dataset.term), 1); save(); renderAll(); return; }
     if (btn.dataset.f !== 'remove') return;
     const pl = btn.closest('[data-planned]');
-    if (pl) { const t = state.plan[Number(pl.dataset.planned)]; t.courses = t.courses.filter((c) => c.code !== pl.dataset.code); }
+    if (pl) { const t = state.plan[Number(pl.dataset.planned)]; const c0 = t.courses.find((c) => c.code === pl.dataset.code); t.courses = t.courses.filter((c) => c.code !== pl.dataset.code); if (c0?.fromSchedule) unscheduleCourse(t.term, c0.code); }
     else state.courses.splice(Number(btn.closest('[data-i]').dataset.i), 1);
     save(); renderAll();
   });
@@ -539,7 +563,7 @@ initCourseAutocomplete(school);
 initImport();
 initTimeline();
 initTabs();
-const scheduleCtx = { state, school, $, save, rerender: () => { renderTimeline(); renderResults(); renderTabs(); }, getCourses: () => lastPrepared, getDeclaredResults: () => lastDeclaredResults };
+const scheduleCtx = { state, school, $, save, rerender: () => { renderTimeline(); renderResults(); renderTabs(); }, getCourses: () => lastPrepared, getDeclaredResults: () => lastDeclaredResults, sectionsCache: scheduleSectionsCache };
 initSchedule(scheduleCtx);
 initResults();
 load();

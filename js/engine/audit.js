@@ -3,7 +3,7 @@
 // Input courses: [{ code:'COMP 140', hours:4, status:'completed'|'in-progress'|'failed', ... }]
 // Output: a result tree mirroring the requirement tree, plus summary numbers.
 
-import { aliasesFor, courseMatchesSpec, isPatternSpec, collectExactCodes } from './match.js';
+import { aliasesFor, courseMatchesSpec, isPatternSpec, collectExactCodes, countExactRefs } from './match.js';
 
 const DEFAULT_HOURS = 3;
 
@@ -30,6 +30,7 @@ export function prepareCourses(courses, school, opts = {}) {
  */
 export function auditProgram(program, courses) {
   const reserved = collectExactCodes(program.requirements);
+  reserved.refs = countExactRefs(program.requirements);
   const used = new Set();
   const tree = evalNodes(program.requirements, courses, used, reserved);
   const sum = summarize(tree);
@@ -85,14 +86,17 @@ function pickFor(specs, courses, used, reserved, allow) {
   const candidates = courses.filter((c) => !used.has(c.key) && specList.some((s) => courseMatchesSpec(c, s)) && (!allow || allow(c)));
   if (!candidates.length) return null;
   // Prefer courses that exactly match a string spec, then non-reserved courses (leave named courses for their own slots),
-  // then completed over in-progress.
+  // then courses that fewer other slots could use, then completed over in-progress over planned.
+  const refs = reserved.refs || new Map();
   const score = (c) => {
     const exact = specList.some((s) => typeof s === 'string' && c.aliases.includes(s)) ? 0 : 1;
     const isReserved = c.aliases.some((a) => reserved.has(a)) ? 1 : 0;
+    const demand = Math.max(0, ...c.aliases.map((a) => refs.get(a) || 0));
     const ip = c.status === 'planned' ? 2 : c.status === 'in-progress' ? 1 : 0;
-    return exact * 8 + isReserved * 4 + ip;
+    return [exact, isReserved, demand, ip];
   };
-  candidates.sort((a, b) => score(a) - score(b));
+  const cmp = (a, b) => { const x = score(a), y = score(b); for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; };
+  candidates.sort(cmp);
   return candidates[0];
 }
 

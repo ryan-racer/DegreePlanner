@@ -62,6 +62,7 @@ export function loadSections(term) {
   if (!sectionCache.has(term)) {
     sectionCache.set(term, fetch(`${ctx.school.sectionDataPath}${term}.json`).then((r) => (r.ok ? r.json() : { sections: [] }))
       .then((d) => d.sections.map((x) => ({ crn: x[0], code: x[1], sec: x[2], title: x[3], instr: x[4], credits: Number(x[5]) || 0, dist: x[6], part: x[7], meetings: x[8].map((m) => ({ days: m[0], start: m[1], end: m[2] })) })))
+      .then((list) => { ctx?.sectionsCache?.set(term, list); return list; })
       .catch(() => []));
   }
   return sectionCache.get(term);
