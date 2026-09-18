@@ -21,6 +21,7 @@ export function prepareCourses(courses, school, opts = {}) {
       key: `${c.code}#${i}`,
       hours: Number.isFinite(c.hours) && c.hours >= 0 ? c.hours : (school.catalog?.[c.code]?.hours ?? school.defaultHours ?? DEFAULT_HOURS),
       aliases: aliasesFor(c.code, school.crosslist),
+      passFail: (school.passFailGrades || []).includes(c.grade),
     }));
 }
 
@@ -28,7 +29,10 @@ export function prepareCourses(courses, school, opts = {}) {
  * Audit one program.
  * @returns {{ program, satisfied, remaining, total, pct, used: Course[], tree: ResultNode[] }}
  */
-export function auditProgram(program, courses, overrides = []) {
+export function auditProgram(program, allCourses, overrides = []) {
+  // Pass/Fail work earns hours but cannot satisfy a major or minor, unless the student records an approved substitution.
+  const overrideCodes = new Set((overrides || []).map((o) => o.code));
+  const courses = allCourses.filter((c) => !c.passFail || c.aliases.some((a) => overrideCodes.has(a)));
   const reserved = collectExactCodes(program.requirements);
   reserved.refs = countExactRefs(program.requirements);
   const used = new Map(); // course key -> path of the node that spent it
@@ -61,6 +65,8 @@ export function auditProgram(program, courses, overrides = []) {
     usedHours: usedCourses.reduce((a, c) => a + c.hours, 0),
     tree,
     constraints,
+    // Pass/Fail courses this program names: they would have counted with a letter grade.
+    passFailBlocked: allCourses.filter((c) => c.passFail && !courses.includes(c) && c.aliases.some((a) => reserved.has(a))).map((c) => c.code),
   };
 }
 

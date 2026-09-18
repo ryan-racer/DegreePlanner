@@ -19,7 +19,8 @@ const DEFAULT_HINTS = {
   major: /\bMajors?\s*:\s*([^\n]+)/i,
   minor: /\bMinors?\s*:\s*([^\n]+)/i,
   skipLine: /\b(Still\s+needed|Not\s+yet\s+taken|Prerequisite)\b/i,
-  ignore: null, // regex for codes to drop (e.g. placeholder transfer codes)
+  ignore: null, // regex for codes to drop
+  generic: null, // regex for placeholder codes (unarticulated transfer credit): each row is kept as general credit
 };
 
 /**
@@ -78,6 +79,7 @@ export function parseTranscript(text, school = {}) {
   }
 
   if (skippedStillNeeded) warnings.push(`Skipped ${skippedStillNeeded} "still needed" line(s) that list courses not yet taken.`);
+  if (hints.generic) for (const c of courses) if (hints.generic.test(c.code)) c.generic = true;
   const deduped = dedupe(courses);
   if (deduped.length < courses.length) warnings.push(`Merged ${courses.length - deduped.length} duplicate course entr${courses.length - deduped.length === 1 ? 'y' : 'ies'}.`);
   return { courses: deduped, declared, warnings };
@@ -117,7 +119,8 @@ const RANK = { completed: 2, 'in-progress': 1, failed: 0 };
 function dedupe(courses) {
   const out = [];
   for (const c of courses) {
-    const i = out.findIndex((o) => o.code === c.code && (o.term === c.term || o.source === 'transfer' || c.source === 'transfer'));
+    if (c.generic) { out.push(c); continue; } // every placeholder row is a different course
+    const i = out.findIndex((o) => !o.generic && o.code === c.code && (o.term === c.term || o.source === 'transfer' || c.source === 'transfer'));
     if (i < 0) { out.push(c); continue; }
     const prev = out[i];
     const better = RANK[c.status] > RANK[prev.status] || (RANK[c.status] === RANK[prev.status] && (c.hours || 0) > (prev.hours || 0));

@@ -62,13 +62,15 @@ export default {
   currentCatalogYear,
   programsFor,
   defaultHours: 3,
+  // Courses taken Pass/Fail earn hours but cannot satisfy major or minor requirements.
+  passFailGrades: ['P'],
   maxTermHours: 18, // most a student can take in a term without an overload approval
   // Hints for the transcript parser (see js/parser/transcript.js for defaults).
   transcript: {
     inProgress: /\b(COURSES?\s+IN\s+PROGRESS|IN[- ]PROGRESS)\b/i,
     transfer: /\b(TRANSFER\s+CREDIT|ADVANCED\s+PLACEMENT|AP\s+CREDIT|TEST\s+CREDIT)\b/i,
     institution: /\b(INSTITUTION\s+CREDIT)\b/i,
-    ignore: /^TRAN \d/, // unarticulated transfer credit placeholders
+    generic: /^TRAN \d/, // transfer credit with no Rice equivalent: counts toward total hours only
   },
   sample,
   // Per-department course details (descriptions, prerequisites, offerings), fetched lazily by js/ui/coursecard.js.
@@ -80,10 +82,19 @@ export default {
   sectionDataDate,
   // University-wide graduation requirements (General Announcements, Graduation Requirements).
   degree: {
+    // General Announcements, "Graduation Requirements" and "Transfer Credit" (2025-2026).
     hours: 120, upperLevelHours: 48, upperLevel: 300,
-    writing: { name: 'First-Year Writing Intensive Seminar', short: 'FWIS', from: [{ dept: 'FWIS' }] },
-    activity: { name: 'Lifetime Physical Activity Program', short: 'LPAP', from: [{ dept: 'LPAP' }], maxHoursCounted: 4 },
-    distribution: { groups: ['I', 'II', 'III'], courses: 3, minHours: 3, minDepartments: 2 },
+    residency: { hours: 60, upperLevelHours: 25 }, // earned at Rice: 60 hours, and more than half of the 48 upper-level hours
+    minGpa: 1.67,
+    programMinGpa: 2.0, // across the courses applied to a major or minor
+    transferMinHours: 2.5, // a transferred equivalent counts toward distribution or FWIS only with at least 2.5 hours
+    hourCaps: [
+      { label: 'LPAP credit', from: [{ dept: 'LPAP' }], max: 4 },
+      { label: 'student-taught COLL credit', from: [{ dept: 'COLL', min: 100, max: 199 }, 'COLL 200'], max: 3 },
+    ],
+    writing: { name: 'First-Year Writing Intensive Seminar', short: 'FWIS', from: [{ dept: 'FWIS', exclude: ['FWIS 100'] }], minHours: 3 }, // FWIS 100 cannot meet the requirement
+    activity: { name: 'Lifetime Physical Activity Program', short: 'LPAP', from: [{ dept: 'LPAP', min: 100, max: 199 }, 'LPAP 238'], minHours: 1 },
+    distribution: { groups: ['I', 'II', 'III'], courses: 3, minHours: 3, minDepartments: 2, excludeDepts: ['FWIS'] }, // FWIS never counts toward distribution
     diversity: { name: 'Analyzing Diversity', short: 'AD', minHours: 3 },
   },
   programs,

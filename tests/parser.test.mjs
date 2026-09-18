@@ -15,11 +15,12 @@ Electrical & Computer Eng.
 Minor
 Medical Humanities
 TRANSFER CREDIT ACCEPTED BY INSTITUTION
-2021-2023: Some Community College
+2021-2023: Example College
 Subject Course Title Grade Credit Hours Quality Points R
 COMP 140 COMPUTATIONAL THINKING TR 4.000 0.00
-FOTO 210 BEGINNING DIGITAL PHOTOGRAPHYTR 2.001 0.00
-TRAN 100 DISCRETE MATH/BEG PRG MTHD C++TR 2.340 0.00 I
+ARTS 210 INTERMEDIATE WATERCOLOR STUDIOTR 2.001 0.00
+TRAN 100 INTRO TO PROGRAMMING IN C++TR 2.340 0.00 I
+TRAN 100 SURVEY OF WORLD MUSICTR 3.335 0.00
 INSTITUTION CREDIT
 Term: Fall Semester 2024
 Subject Course Level Title Grade Credit Quality R
@@ -38,13 +39,14 @@ ELEC 303 UG RANDOM SIGNALS 3.000
 `;
 
 test('ESTHER quirks: terms, glued grades, placeholders, zero hours, statuses', () => {
-  const { courses, declared } = parseTranscript(ESTHER, { transcript: { ignore: /^TRAN \d/ } });
+  const { courses, declared } = parseTranscript(ESTHER, { transcript: { generic: /^TRAN \d/ } });
   const by = Object.fromEntries(courses.map((c) => [c.code, c]));
-  assert.equal(by['TRAN 100'], undefined, 'placeholder transfer credit is skipped');
+  const generic = courses.filter((c) => c.generic);
+  assert.deepEqual(generic.map((c) => c.hours), [2.34, 3.335], 'each unarticulated transfer row is kept as general credit');
   assert.equal(by['MATH 101'].grade, 'A+', 'grade glued to the title is recovered');
   assert.equal(by['MATH 101'].term, 'Fall 2024', '"Fall Semester 2024" is understood');
-  assert.equal(by['FOTO 210'].grade, 'TR');
-  assert.equal(by['FOTO 210'].source, 'transfer');
+  assert.equal(by['ARTS 210'].grade, 'TR');
+  assert.equal(by['ARTS 210'].source, 'transfer');
   assert.equal(by['PHYS 103'].hours, 0, 'zero-credit sections keep zero hours');
   assert.equal(by['ELEC 999'].status, 'failed');
   assert.equal(by['ELEC 303'].status, 'in-progress', 'no grade column in the in-progress section');

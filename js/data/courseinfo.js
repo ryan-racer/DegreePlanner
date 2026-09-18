@@ -4,6 +4,8 @@ const cache = new Map(); // `${schoolId}/${dept}` -> Promise<object>
 
 export function loadDept(school, dept) {
   const key = `${school.id}/${dept}`;
+  // Placeholder departments (unarticulated transfer credit) have no catalog entry to fetch.
+  if (school.transcript?.generic?.test(`${dept} 100`)) return Promise.resolve({});
   if (!cache.has(key)) cache.set(key, fetch(`${school.courseDataPath || ''}${dept}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
   return cache.get(key);
 }

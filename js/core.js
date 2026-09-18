@@ -2,6 +2,7 @@
 // depend on each other. `school` is a live binding: call setSchool() to change it.
 import { schools, getSchool } from './schools/index.js';
 import { esc } from './ui/render.js';
+import { POINTS } from './engine/grades.js';
 
 export const $ = (sel) => document.querySelector(sel);
 export let school = getSchool(localStorage.getItem('rf.school') || schools[0].id);
@@ -81,7 +82,7 @@ export function setStatus(msg, kind = 'info', list = [], { sticky = false } = {}
   side.classList.toggle('hidden', !html);
 }
 
-export const POINTS = { 'A+': 4.33, A: 4, 'A-': 3.67, 'B+': 3.33, B: 3, 'B-': 2.67, 'C+': 2.33, C: 2, 'C-': 1.67, 'D+': 1.33, D: 1, 'D-': 0.67, F: 0 };
+export { POINTS };
 
 export function gradeClass(c) {
   if (c.status === 'planned') return 'border-dashed border-sky-300 text-sky-700 dark:border-sky-700 dark:text-sky-300';

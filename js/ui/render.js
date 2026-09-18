@@ -1,5 +1,6 @@
 // Renders audit results as HTML strings. All user data is escaped.
 import { specLabel } from '../engine/match.js';
+import { gpaOf } from '../engine/grades.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const icon = (id, cls = '') => `<svg class="size-4 shrink-0 ${cls}" aria-hidden="true"><use href="#${id}"/></svg>`;
@@ -7,6 +8,22 @@ const icon = (id, cls = '') => `<svg class="size-4 shrink-0 ${cls}" aria-hidden=
 /**
  * One program row. `variant` is 'card' (declared programs, standalone bordered block) or 'row' (explorer list item).
  */
+const NOTE = 'mb-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200';
+/** University rules that apply to every major and minor: letter grades only, a minimum GPA, upper-level work in residence. */
+function policyNotes(result, school) {
+  const out = [], cfg = school?.degree || {}, used = result.usedCourses;
+  const pf = result.passFailBlocked || [];
+  if (pf.length) out.push(`${pf.join(', ')} ${pf.length === 1 ? 'was' : 'were'} taken Pass/Fail. The hours count toward the degree, but a major or minor needs the letter grade. You can ask the Registrar to uncover the grade; if the department approved it as is, use Substitute.`);
+  const g = gpaOf(used.filter((c) => c.source !== 'transfer'), school?.defaultHours);
+  if (cfg.programMinGpa && g != null && g < cfg.programMinGpa) out.push(`GPA across the courses applied here is ${g.toFixed(2)}; at least ${cfg.programMinGpa.toFixed(2)} is required.`);
+  if (cfg.residency && result.program.kind === 'major') {
+    const up = used.filter((c) => Number((c.code.match(/(\d{3})[A-Z]?$/) || [])[1]) >= (cfg.upperLevel || 300));
+    const all = up.reduce((a, c) => a + (c.hours || 0), 0), away = up.filter((c) => c.source === 'transfer').reduce((a, c) => a + (c.hours || 0), 0);
+    if (away > 0 && away >= all / 2) out.push(`${away} of the ${all} upper-level hours applied here are transfer credit. More than half of a major's upper-level work must be taken in residence.`);
+  }
+  return out.map((t) => `<p class="${NOTE}">${esc(t)}</p>`).join('');
+}
+
 export function programCard(result, { expanded, declared, school, variant = 'row' }) {
   EDIT = declared ? result.program.id : null;
   const p = result.program;
@@ -43,6 +60,7 @@ export function programCard(result, { expanded, declared, school, variant = 'row
         <a class="inline-flex items-center gap-1 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" href="${esc(p.url)}" target="_blank" rel="noopener">Catalog page ${icon('i-external', 'size-3')}</a>
         <a class="font-medium text-blue-700 hover:underline dark:text-blue-400" href="#" data-action="${declared ? 'undeclare' : 'declare'}" data-id="${esc(p.id)}">${declared ? 'Remove from my programs' : 'Add to my programs'}</a>
       </div>
+      ${policyNotes(result, school)}
       ${p.catalogNote ? `<p class="mb-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">${esc(p.catalogNote)}</p>` : ''}
       ${result.tree.map((node) => nodeHtml(node, school, 0)).join('')}
       ${result.constraints?.length ? `<div class="mt-4"><div class="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Rules across sections</div>${result.constraints.map((k) => `<div class="flex items-center gap-2 py-1 text-sm">${icon(k.satisfied ? 'i-check' : 'i-circle', k.satisfied ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-500')}<span class="min-w-0 flex-1 ${k.satisfied ? '' : 'text-zinc-700 dark:text-zinc-300'}">${esc(k.constraint.label || '')}</span><span class="font-mono text-[11px] tabular-nums ${k.satisfied ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">${k.have % 1 ? k.have.toFixed(1) : k.have} / ${k.constraint.type === 'atMost' ? 'max ' : ''}${k.need}${k.constraint.hours != null ? ' hrs' : ''}</span></div>`).join('')}</div>` : ''}

@@ -1,3 +1,6 @@
 .DS_Store
 node_modules/
 .gstack/
+
+# Never commit personal records (transcripts, degree audits)
+*.pdf

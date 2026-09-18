@@ -126,6 +126,26 @@ Read [docs/PROGRAM_FORMAT.md](docs/PROGRAM_FORMAT.md). In short:
   `js/schools/rice/index.js` (programs, optional crosslist/catalog/sample and
   transcript parser hints), then list it in `js/schools/index.js`.
 
+### University policies
+
+University-wide rules live in the school's `degree` block, so another school only needs different values:
+
+| Key | Rice value | Rule |
+| --- | --- | --- |
+| `hours`, `upperLevelHours`, `upperLevel` | 120, 48, 300 | total hours (a program's `degreeHours` can raise it) and hours at the 300 level or above |
+| `residency` | 60 hours, 25 upper-level | hours that must be earned at the school itself (not transfer credit) |
+| `minGpa`, `programMinGpa` | 1.67, 2.00 | cumulative GPA, and GPA across the courses applied to a major or minor |
+| `transferMinHours` | 2.5 | a transferred equivalent meets a general education rule with this many hours instead of the usual minimum |
+| `hourCaps` | LPAP 4, student-taught COLL 3 | hours beyond the cap do not count toward the degree |
+| `writing`, `activity`, `diversity` | FWIS except FWIS 100; LPAP 100-199 or 238; any AD course of 3+ hours | single-course requirements |
+| `distribution` | 3 courses of 3+ hours per group, 2+ departments, never FWIS | distribution groups |
+| `passFailGrades` (school level) | `['P']` | grades that earn hours but cannot satisfy a major or minor |
+| `transcript.generic` | `/^TRAN \d/` | placeholder codes for transfer credit with no equivalent: every row counts toward total hours only |
+
+A course passed twice earns credit once unless its catalog description says it is repeatable for credit. Both
+attempts stay in the GPA. Distribution and diversity designations come from the current catalog; the rule that a
+course must carry the designation in the semester it was taken cannot be checked from a transcript.
+
 ## Refreshing the Rice data
 
 Everything generated (catalog, cross-listings, course details, section times) comes from the General Announcements
