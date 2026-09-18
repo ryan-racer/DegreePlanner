@@ -108,11 +108,29 @@ function ingest(text, label = 'text') {
     $('#workspace').hidden = true; $('#intro').hidden = false;
     return;
   }
+  const previous = state.courses;
   state.courses = courses.map((c) => ({ ...c }));
-  state.declared = detectDeclared(declared);
+  const detected = detectDeclared(declared);
+  if (detected.length || !state.declared.length) state.declared = detected;
   state.expanded = new Set(state.declared);
   state.page = 1;
-  setStatus(`Imported ${courses.length} courses from ${label}.`, 'ok', warnings);
+  const notes = [...warnings];
+  if (previous.length) {
+    const before = new Map(previous.map((c) => [c.code, c]));
+    const after = new Map(state.courses.map((c) => [c.code, c]));
+    const added = [...after.keys()].filter((k) => !before.has(k));
+    const removed = [...before.keys()].filter((k) => !after.has(k));
+    const finished = [...after.values()].filter((c) => c.status === 'completed' && before.get(c.code)?.status === 'in-progress').map((c) => `${c.code}${c.grade ? ` (${c.grade})` : ''}`);
+    if (added.length) notes.push(`New: ${added.join(', ')}.`);
+    if (finished.length) notes.push(`Now completed: ${finished.join(', ')}.`);
+    if (removed.length) notes.push(`No longer listed: ${removed.join(', ')}.`);
+    // Planned courses that are now on the transcript have happened; drop them from the plan.
+    let dropped = 0;
+    for (const t of state.plan) { const keep = t.courses.filter((c) => !after.has(c.code)); dropped += t.courses.length - keep.length; t.courses = keep; }
+    state.plan = state.plan.filter((t) => t.courses.length);
+    if (dropped) notes.push(`${dropped} planned course${dropped === 1 ? ' that is' : 's that are'} now on your transcript ${dropped === 1 ? 'was' : 'were'} removed from the plan.`);
+  }
+  setStatus(`${previous.length ? 'Replaced with' : 'Imported'} ${courses.length} courses from ${label}.`, 'ok', notes);
   $('#paste-box').hidden = true;
   save(); renderAll();
   window.scrollTo({ top: 0 });
@@ -484,6 +502,13 @@ function renderOverview(courses, declaredResults) {
     slot.innerHTML = `<div class="text-[11px] text-zinc-500">Distribution</div><div class="flex gap-2 text-base font-semibold tabular-nums leading-tight">${d.cfg.groups.map((g, i) => `<span title="${esc(d.have[g].codes.join(', ') || 'none yet')}"><span class="text-[11px] font-normal text-zinc-500">D${i + 1} </span><span class="${d.need[g] ? 'text-amber-600 dark:text-amber-400' : ''}">${Math.min(d.have[g].count, d.cfg.coursesPerGroup)}/${d.cfg.coursesPerGroup}</span></span>`).join('')}</div><div class="text-[11px] text-zinc-500">${d.cfg.coursesPerGroup} courses per group</div>`;
   });
 }
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+  const target = state.tab === 'schedule' ? $('#sched-search') : state.tab === 'audit' ? $('#search') : null;
+  if (target && !target.closest('[hidden]')) { e.preventDefault(); target.focus(); target.select(); }
+});
 
 function initResults() {
   window.addEventListener('dp:find-sections', (e) => {
