@@ -106,7 +106,7 @@
       <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 class="text-lg font-semibold tracking-tight">Semester schedule</h2>
-          <p class="text-sm text-zinc-500">Section times from the course schedule<span id="sched-asof"></span>. Find courses that fit around what you already have.</p>
+          <p class="text-sm text-zinc-500">Section times<span id="sched-asof"></span>.</p>
         </div>
         <div class="flex items-center gap-2">
           <select id="sched-term" class="field" aria-label="Term"></select>
@@ -164,7 +164,7 @@
           <p id="course-summary" class="mt-0.5 text-xs text-zinc-500"></p>
         </div>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <label class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400"><input type="checkbox" id="include-ip" class="size-4 accent-zinc-900 dark:accent-zinc-100" checked> In progress counts</label>
+          <input type="checkbox" id="include-ip" class="hidden" checked>
           <label class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400"><input type="checkbox" id="include-planned" class="size-4 accent-zinc-900 dark:accent-zinc-100" checked> Planned counts</label>
           <div class="flex gap-1">
             <button id="edit-btn" class="btn btn-ghost btn-sm" type="button" aria-pressed="false">Edit</button>
@@ -177,7 +177,7 @@
       <div id="suggest-box" class="border-t border-zinc-200 px-3 py-2.5 dark:border-zinc-800" hidden>
         <div class="flex items-baseline justify-between gap-3">
           <h3 class="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Suggested next courses</h3>
-          <span class="text-[11px] text-zinc-500">Ranked by open requirements filled in your programs · hover for details</span>
+          <span class="text-[11px] text-zinc-500">Ranked by requirements filled</span>
         </div>
         <div id="suggest-list" class="mt-1.5 flex flex-wrap gap-1"></div>
         <p id="suggest-patterns" class="mt-2 text-[11px] leading-4 text-zinc-500"></p>
@@ -190,7 +190,6 @@
       <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 class="text-lg font-semibold tracking-tight">Your programs</h2>
-          <p class="text-sm text-zinc-500">Declared majors and minors, audited requirement by requirement.</p>
         </div>
         <select id="declare-select" class="field max-w-xs" aria-label="Add a program"></select>
       </div>

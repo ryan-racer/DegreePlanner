@@ -67,7 +67,10 @@ function initChrome() {
 }
 
 // ---------- import ----------
+let statusTimer;
 function setStatus(msg, kind = 'info', list = []) {
+  clearTimeout(statusTimer);
+  if (msg && kind === 'ok') statusTimer = setTimeout(() => { const side = $('#side-status'); side.innerHTML = ''; side.classList.add('hidden'); }, 12000);
   const color = { info: 'text-zinc-600 dark:text-zinc-400', ok: 'text-emerald-700 dark:text-emerald-400', error: 'text-red-600 dark:text-red-400' }[kind];
   const html = msg ? `<span class="${color}">${esc(msg)}</span>${list.length ? `<ul class="mt-1 list-disc pl-4 text-zinc-500">${list.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}` : '';
   $('#intro-status').innerHTML = html;
