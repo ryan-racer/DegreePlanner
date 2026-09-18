@@ -53,6 +53,7 @@ export function initSchedule(context) {
     if (b.dataset.f === 'remove') removeSection(Number(b.dataset.crn));
     if (b.dataset.f === 'dist') { ui.dist = ui.dist === b.dataset.g ? '' : b.dataset.g; renderCandidates(); }
     if (b.dataset.f === 'clear') { setSelected([]); }
+    if (b.dataset.f === 'ics') exportIcs();
   });
 }
 
@@ -112,6 +113,47 @@ function conflicts(a, b) {
   return false;
 }
 
+// ---------- calendar export ----------
+const ICS_DAY = { M: 'MO', T: 'TU', W: 'WE', R: 'TH', F: 'FR', S: 'SA', U: 'SU' };
+const DAY_IDX = { U: 0, M: 1, T: 2, W: 3, R: 4, F: 5, S: 6 };
+/** Default semester window: Fall runs from the 4th Monday of August, Spring from the 2nd Monday of January, both ~15 weeks. */
+function defaultTermDates(term) {
+  const y = Number(String(term).slice(0, 4)), s = String(term).slice(4);
+  const nthMonday = (year, month, n) => { const d = new Date(year, month, 1); const off = (8 - d.getDay()) % 7; d.setDate(1 + off + (n - 1) * 7); return d; };
+  const start = s === '10' ? nthMonday(y - 1, 7, 4) : s === '20' ? nthMonday(y, 0, 2) : nthMonday(y, 4, 4);
+  const end = new Date(start); end.setDate(end.getDate() + (s === '30' ? 7 * 10 : 7 * 15) - 1);
+  const iso = (d) => d.toISOString().slice(0, 10);
+  return { start: iso(start), end: iso(end) };
+}
+async function exportIcs() {
+  const $ = ctx.$;
+  const term = currentTerm();
+  const sections = await loadSections(term);
+  const selected = selectedCrns().map((crn) => sections.find((s) => s.crn === crn)).filter(Boolean);
+  if (!selected.length) return;
+  const start = $('#ics-start').value, end = $('#ics-end').value;
+  if (!start || !end) return;
+  const [sy, sm, sd] = start.split('-').map(Number);
+  const until = end.replace(/-/g, '') + 'T235959';
+  const pad = (n) => String(n).padStart(2, '0');
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//DegreePlanner//EN', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:' + termName(term) + ' classes'];
+  for (const sec of selected) sec.meetings.forEach((m, i) => {
+    // First occurrence: the first listed meeting day on or after the term start date.
+    const first = new Date(sy, sm - 1, sd);
+    const days = [...m.days].map((d) => DAY_IDX[d]);
+    while (!days.includes(first.getDay())) first.setDate(first.getDate() + 1);
+    const dt = (mins) => `${first.getFullYear()}${pad(first.getMonth() + 1)}${pad(first.getDate())}T${pad(Math.floor(mins / 60))}${pad(mins % 60)}00`;
+    lines.push('BEGIN:VEVENT', `UID:${sec.crn}-${i}-${term}@degreeplanner`, `DTSTAMP:${stamp}`, `DTSTART:${dt(m.start)}`, `DTEND:${dt(m.end)}`,
+      `RRULE:FREQ=WEEKLY;BYDAY=${[...m.days].map((d) => ICS_DAY[d]).join(',')};UNTIL=${until}`,
+      `SUMMARY:${sec.code} ${titleCase(sec.title).replace(/[,;]/g, ' ')}`, `DESCRIPTION:Section ${sec.sec}${sec.instr ? ' · ' + sec.instr.replace(/[,;]/g, ' ') : ''} · ${sec.credits} credit hours`, 'END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  const blob = new Blob([lines.join('\r\n') + '\r\n'], { type: 'text/calendar' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${termName(term).replace(' ', '-')}-classes.ics`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 // ---------- rendering ----------
 export async function render() {
   const $ = ctx.$;
@@ -132,6 +174,10 @@ export async function render() {
     $('#sched-note').textContent = guesses.length ? 'Sections were guessed from your in-progress courses. Switch any section from the list on the right.' : '';
   }
   const selected = selectedCrns().map((crn) => byCrn.get(crn)).filter(Boolean);
+  const dd = defaultTermDates(term);
+  const icsStart = $('#ics-start'), icsEnd = $('#ics-end');
+  if (icsStart.dataset.term !== term) { icsStart.value = dd.start; icsEnd.value = dd.end; icsStart.dataset.term = term; }
+  $('#ics-box').hidden = !selected.length;
   renderGrid(selected);
   renderSelected(selected, sections);
   await renderCandidates();
