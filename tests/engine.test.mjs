@@ -119,14 +119,12 @@ test('hour caps stop counting once reached', () => {
   assert.ok(r.constraints[0].satisfied);
 });
 
-test('pass/fail courses earn hours but do not satisfy a program, unless substituted', () => {
+test('pass/fail courses count toward a program and are flagged, since the grade is uncovered by the final audit', () => {
   const s2 = { ...school, passFailGrades: ['P'] };
   const p = prog([{ type: 'course', name: 'Algorithms', options: ['CS 301'] }]);
-  const courses = prepareCourses([{ code: 'CS 301', status: 'completed', grade: 'P' }], s2, {});
-  const r = auditProgram(p, courses);
-  assert.equal(r.remaining, 1);
-  assert.deepEqual(r.passFailBlocked, ['CS 301']);
-  assert.equal(auditProgram(p, courses, [{ key: '0#0', code: 'CS 301' }]).remaining, 0, 'an approved substitution still counts');
-  const s = prepareCourses([{ code: 'CS 301', status: 'completed', grade: 'S' }], s2, {});
-  assert.equal(auditProgram(p, s).remaining, 0, 'satisfactory grades in S/U-only courses count');
+  const r = auditProgram(p, prepareCourses([{ code: 'CS 301', status: 'completed', grade: 'P' }], s2, {}));
+  assert.equal(r.remaining, 0);
+  assert.deepEqual(r.passFailUsed, ['CS 301']);
+  const s = auditProgram(p, prepareCourses([{ code: 'CS 301', status: 'completed', grade: 'S' }], s2, {}));
+  assert.deepEqual(s.passFailUsed, [], 'S/U-only courses are not Pass/Fail');
 });

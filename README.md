@@ -139,7 +139,7 @@ University-wide rules live in the school's `degree` block, so another school onl
 | `hourCaps` | LPAP 4, student-taught COLL 3 | hours beyond the cap do not count toward the degree |
 | `writing`, `activity`, `diversity` | FWIS except FWIS 100; LPAP 100-199 or 238; any AD course of 3+ hours | single-course requirements |
 | `distribution` | 3 courses of 3+ hours per group, 2+ departments, never FWIS | distribution groups |
-| `passFailGrades` (school level) | `['P']` | grades that earn hours but cannot satisfy a major or minor |
+| `passFailGrades` (school level) | `['P']` | Pass/Fail grades: the course still counts toward a major or minor (the Registrar uncovers the grade by the final audit), with a notice |
 | `transcript.generic` | `/^TRAN \d/` | placeholder codes for transfer credit with no equivalent: every row counts toward total hours only |
 
 A course passed twice earns credit once unless its catalog description says it is repeatable for credit. Both

@@ -1,6 +1,6 @@
 // DegreePlanner service worker: network-first with cache fallback, so pages are always fresh when online
 // and still open offline once visited. Bump CACHE when the caching strategy changes.
-const CACHE = 'degreeplanner-v6';
+const CACHE = 'degreeplanner-v7';
 const SHELL = ['./', './index.html', './css/app.css', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (e) => {

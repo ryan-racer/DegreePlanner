@@ -62,7 +62,8 @@ export default {
   currentCatalogYear,
   programsFor,
   defaultHours: 3,
-  // Courses taken Pass/Fail earn hours but cannot satisfy major or minor requirements.
+  // A major or minor needs the letter grade, so the Registrar uncovers a P (on request, or at the final audit).
+  // Such courses therefore count, with a notice.
   passFailGrades: ['P'],
   maxTermHours: 18, // most a student can take in a term without an overload approval
   // Hints for the transcript parser (see js/parser/transcript.js for defaults).

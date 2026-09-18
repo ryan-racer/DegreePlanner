@@ -9,11 +9,11 @@ const icon = (id, cls = '') => `<svg class="size-4 shrink-0 ${cls}" aria-hidden=
  * One program row. `variant` is 'card' (declared programs, standalone bordered block) or 'row' (explorer list item).
  */
 const NOTE = 'mb-2 rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200';
-/** University rules that apply to every major and minor: letter grades only, a minimum GPA, upper-level work in residence. */
+/** University rules that apply to every major and minor: Pass/Fail grades get uncovered, a minimum GPA, upper-level work in residence. */
 function policyNotes(result, school) {
   const out = [], cfg = school?.degree || {}, used = result.usedCourses;
-  const pf = result.passFailBlocked || [];
-  if (pf.length) out.push(`${pf.join(', ')} ${pf.length === 1 ? 'was' : 'were'} taken Pass/Fail. The hours count toward the degree, but a major or minor needs the letter grade. You can ask the Registrar to uncover the grade; if the department approved it as is, use Substitute.`);
+  const pf = result.passFailUsed || [];
+  if (pf.length) out.push(`${pf.join(', ')} ${pf.length === 1 ? 'was' : 'were'} taken Pass/Fail. ${pf.length === 1 ? 'It counts' : 'They count'} here because the Registrar uncovers the letter grade, on your request or automatically at the final degree audit. Until then DegreeWorks lists ${pf.length === 1 ? 'it' : 'them'} as still needed. An uncovered grade enters your GPA and cannot be covered again.`);
   const g = gpaOf(used.filter((c) => c.source !== 'transfer'), school?.defaultHours);
   if (cfg.programMinGpa && g != null && g < cfg.programMinGpa) out.push(`GPA across the courses applied here is ${g.toFixed(2)}; at least ${cfg.programMinGpa.toFixed(2)} is required.`);
   if (cfg.residency && result.program.kind === 'major') {
