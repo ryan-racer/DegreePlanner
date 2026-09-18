@@ -331,7 +331,7 @@ function renderTimeline() {
 
   const addForm = (cls, attrs) => `<form class="${cls} mt-0.5 flex gap-1" ${attrs} autocomplete="off"><input class="course-input field h-6 min-w-0 flex-1 px-1.5 font-mono text-[11px] uppercase placeholder:normal-case" placeholder="Add course" aria-label="Course code" required><button class="btn h-6 px-1.5 text-[11px]" type="submit">Add</button></form>`;
   const col = (title, sub, body, cls, heavy = false) => `<div class="flex min-w-0 flex-col rounded-md border ${cls}">
-      <div class="flex items-baseline justify-between gap-2 px-2 pt-1.5 pb-1"><span class="truncate text-xs font-medium">${title}</span><span class="shrink-0 font-mono text-[11px] ${heavy ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500'}" ${heavy ? 'title="Over 20 hours: needs overload approval"' : ''}>${sub}</span></div>
+      <div class="flex items-baseline justify-between gap-2 px-2 pt-1.5 pb-1"><span class="shrink-0 whitespace-nowrap text-xs font-medium">${title}</span><span class="min-w-0 truncate font-mono text-[11px] ${heavy ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500'}" ${heavy ? 'title="Over 20 hours: needs overload approval"' : 'title="Credit hours · term GPA"'}>${sub}</span></div>
       <div class="flex flex-col px-1 pb-1">${body}</div></div>`;
 
   const pastCols = past.map(([term, items]) => {
@@ -340,14 +340,14 @@ function renderTimeline() {
     const tg = gpa(items.map(({ c }) => c));
     const body = items.sort((a, b) => a.c.code.localeCompare(b.c.code)).map(({ c, i }) => chip(c, { index: i })).join('') +
       (state.editing ? addForm('add-course', `data-term="${esc(term === 'Transfer credit' || term === 'Other' ? '' : term)}" data-source="${term === 'Transfer credit' ? 'transfer' : 'manual'}"`) : '');
-    return col(esc(term), `${h % 1 ? h.toFixed(1) : h} hr${ip ? ' · IP' : tg && term !== 'Transfer credit' ? ` · ${tg}` : ''}`, body, 'border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40', h > 20);
+    return col(esc(term), `${h % 1 ? h.toFixed(1) : h}h${ip ? ' · IP' : tg && term !== 'Transfer credit' ? ` · ${tg}` : ''}`, body, 'border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40', h > 20);
   });
 
   const planCols = state.plan.map((t, i) => ({ t, i })).sort((a, b) => termKey(a.t.term) - termKey(b.t.term)).map(({ t, i }) => {
     const h = t.courses.reduce((a, c) => a + hoursOf(c), 0);
     const body = t.courses.map((c) => chip({ ...c, status: 'planned', title: school.catalog?.[c.code]?.title }, { planned: true, termIndex: i })).join('') + addForm('add-planned', `data-term="${i}"`);
     const title = `${esc(t.term)}${state.editing ? ` <button type="button" class="btn-icon ml-0.5 size-5 rounded align-middle" data-f="remove-term" data-term="${i}" aria-label="Remove ${esc(t.term)}"><svg class="size-3"><use href="#i-x"/></svg></button>` : ''}`;
-    return col(title, `${h} hr`, body, 'border-dashed border-sky-300 dark:border-sky-800', h > 20);
+    return col(title, `${h}h`, body, 'border-dashed border-sky-300 dark:border-sky-800', h > 20);
   });
 
   const d = nextTermDefault();
@@ -358,7 +358,7 @@ function renderTimeline() {
       <button class="btn h-7 px-2 text-xs" type="submit">Add</button></div>
     </form>`;
   const tl = $('#timeline');
-  tl.classList.toggle('grid-cols-[repeat(auto-fill,minmax(9rem,1fr))]', !state.editing);
+  tl.classList.toggle('grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))]', !state.editing);
   tl.classList.toggle('grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))]', state.editing);
   tl.innerHTML = pastCols.join('') + planCols.join('') + addCol;
   $('#term-season').value = d.season;
