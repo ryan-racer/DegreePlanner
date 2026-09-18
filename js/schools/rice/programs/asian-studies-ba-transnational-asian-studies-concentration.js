@@ -1,0 +1,40 @@
+export default {
+  id: 'asian-studies-ba-transnational-asian-studies-concentration',
+  name: 'Asian Studies: Transnational Asian Studies Concentration',
+  degree: 'BA',
+  kind: 'major',
+  school: 'Humanities and Arts',
+  url: 'https://ga.rice.edu/programs-study/departments-programs/humanities/asian-studies/asian-studies-ba-transnational-asian-studies-concentration/',
+  hours: 30,
+  notes: [
+    'Of the 8 electives, at least 4 must be Asian Content courses; at most 4 may be Asian Language courses (Arabic, Chinese, Japanese, or Korean).',
+    'All ASIA program courses (many cross-listed) may be used as Asian Content electives.',
+  ],
+  requirements: [
+    { type: 'course', name: 'Core Requirement', options: ['ASIA 295'] },
+    { type: 'group', name: 'Elective Requirements', requirements: [
+      { type: 'choose', name: 'Asian Content Courses', count: 4, from: [
+        'HART 221', 'HART 319', 'HART 324', 'HART 385',
+        'ENGL 372', 'ENGL 376', 'ENGL 383',
+        'HIST 112', 'HIST 213', 'HIST 219', 'HIST 271', 'HIST 275', 'HIST 278', 'HIST 281', 'HIST 309', 'HIST 320', 'HIST 378', 'HIST 408',
+        'HIST 434', 'HIST 436', 'HIST 491', 'HIST 494',
+        'HUMA 134', 'PHIL 289', 'POLI 478',
+        'RELI 223', 'RELI 233', 'RELI 234', 'RELI 332', 'RELI 333', 'RELI 356', 'RELI 378', 'RELI 442', 'RELI 470',
+        'SPAN 335',
+        { dept: 'ASIA', exclude: ['ASIA 295', 'ASIA 495'] },
+      ]},
+      { type: 'choose', name: 'Additional Asian Content or Asian Language Courses', count: 4, from: [
+        'HART 221', 'HART 319', 'HART 324', 'HART 385',
+        'ENGL 372', 'ENGL 376', 'ENGL 383',
+        'HIST 112', 'HIST 213', 'HIST 219', 'HIST 271', 'HIST 275', 'HIST 278', 'HIST 281', 'HIST 309', 'HIST 320', 'HIST 378', 'HIST 408',
+        'HIST 434', 'HIST 436', 'HIST 491', 'HIST 494',
+        'HUMA 134', 'PHIL 289', 'POLI 478',
+        'RELI 223', 'RELI 233', 'RELI 234', 'RELI 332', 'RELI 333', 'RELI 356', 'RELI 378', 'RELI 442', 'RELI 470',
+        'SPAN 335',
+        { dept: 'ASIA', exclude: ['ASIA 295', 'ASIA 495'] },
+        { dept: ['ARAB', 'CHIN', 'JAPA', 'KORE'] },
+      ], note: 'At most 4 Asian Language courses may count toward the major.' },
+    ]},
+    { type: 'course', name: 'Capstone Course', options: ['ASIA 495'] },
+  ],
+};

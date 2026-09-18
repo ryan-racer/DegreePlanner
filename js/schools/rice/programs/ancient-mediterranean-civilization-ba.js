@@ -1,0 +1,45 @@
+export default {
+  id: 'ancient-mediterranean-civilization-ba',
+  name: 'Ancient Mediterranean Civilizations',
+  degree: 'BA',
+  kind: 'major',
+  school: 'Humanities and Arts',
+  url: 'https://ga.rice.edu/programs-study/departments-programs/humanities/ancient-mediterranean-civilizations/ancient-mediterranean-civilization-ba/',
+  hours: 30,
+  notes: [
+    'The 3 Core courses must come from 3 different categories (Graeco-Roman, Islamic, Jewish, Christian, Archaeological Methods and Theory).',
+    'Themes Across Time courses address the creation, transmission, and reception of Mediterranean traditions; Comparative Studies courses address two different cultural traditions.',
+    'Courses in ancient languages are recommended but not required.',
+  ],
+  requirements: [
+    { type: 'choose', name: 'Core Requirements (3 of 5 civilization categories)', count: 3, from: [
+      'CLAS 101', 'CLAS 107', 'CLAS 108', 'CLAS 124', 'CLAS 206', 'CLAS 210', 'CLAS 225', 'CLAS 235', 'CLAS 303', 'CLAS 316', 'CLAS 336',
+      'GREE 101', 'GREE 102', 'GREE 201', 'GREE 202', 'GREE 310', 'HART 201', 'HART 216', 'HART 355', 'HART 360',
+      'HIST 200', 'HIST 307', 'HIST 308', 'HIST 357', 'LATI 101', 'LATI 102', 'LATI 201', 'LATI 202', 'LATI 310',
+      'ASIA 221', 'RELI 223', 'RELI 442',
+      'JWST 201', 'RELI 108', 'RELI 120', 'RELI 122', 'RELI 125', 'RELI 126', 'RELI 127', 'RELI 203', 'RELI 382', 'RELI 383',
+      'HART 230', 'HART 377', 'HIST 120', 'HIST 211', 'HIST 327', 'HIST 438', 'RELI 112', 'RELI 243', 'RELI 271', 'RELI 282', 'RELI 304',
+      'RELI 307', 'RELI 308', 'RELI 309', 'RELI 365', 'RELI 406', 'RELI 416', 'RELI 449', 'RELI 611',
+      'ANTH 203', 'ANTH 205', 'ANTH 303', 'ANTH 312', 'ANTH 315', 'ANTH 318', 'ANTH 345', 'ANTH 346', 'ANTH 352', 'ANTH 355',
+      'ANTH 362', 'ANTH 363', 'ANTH 392', 'ANTH 425', 'ANTH 460',
+    ], note: 'One course from each of 3 different categories.' },
+    { type: 'choose', name: 'Themes Across Time', count: 1, from: [
+      'ANTH 363', 'CLAS 124', 'CLAS 206', 'CLAS 210', 'HART 101', 'HIST 200', 'HIST 308', 'PHIL 281', 'PHIL 370', 'PHIL 372', 'PHIL 381', 'RELI 120',
+    ]},
+    { type: 'choose', name: 'Comparative Studies', count: 1, from: [
+      'ANTH 392', 'CLAS 336', 'HART 307', 'HIST 120', 'HIST 357', 'PHIL 381', 'RELI 112', 'RELI 348', 'RELI 384', 'RELI 392',
+    ]},
+    { type: 'choose', name: 'Elective Requirements', count: 5, from: [
+      'CLAS 101', 'CLAS 107', 'CLAS 108', 'CLAS 124', 'CLAS 206', 'CLAS 210', 'CLAS 225', 'CLAS 235', 'CLAS 303', 'CLAS 316', 'CLAS 336',
+      'GREE 101', 'GREE 102', 'GREE 201', 'GREE 202', 'GREE 310', 'HART 201', 'HART 216', 'HART 355', 'HART 360',
+      'HIST 200', 'HIST 307', 'HIST 308', 'HIST 357', 'LATI 101', 'LATI 102', 'LATI 201', 'LATI 202', 'LATI 310',
+      'ASIA 221', 'RELI 223', 'RELI 442',
+      'JWST 201', 'RELI 108', 'RELI 120', 'RELI 122', 'RELI 125', 'RELI 126', 'RELI 127', 'RELI 203', 'RELI 382', 'RELI 383',
+      'HART 230', 'HART 377', 'HIST 120', 'HIST 211', 'HIST 327', 'HIST 438', 'RELI 112', 'RELI 243', 'RELI 271', 'RELI 282', 'RELI 304',
+      'RELI 307', 'RELI 308', 'RELI 309', 'RELI 365', 'RELI 406', 'RELI 416', 'RELI 449', 'RELI 611',
+      'ANTH 203', 'ANTH 205', 'ANTH 303', 'ANTH 312', 'ANTH 315', 'ANTH 318', 'ANTH 345', 'ANTH 346', 'ANTH 352', 'ANTH 355',
+      'ANTH 362', 'ANTH 363', 'ANTH 392', 'ANTH 425', 'ANTH 460',
+      'HART 101', 'PHIL 281', 'PHIL 370', 'PHIL 372', 'PHIL 381', 'HART 307', 'RELI 348', 'RELI 384', 'RELI 392',
+    ], note: 'Any course from the Core, Themes Across Time, or Comparative Studies lists.' },
+  ],
+};

@@ -1,0 +1,17 @@
+{
+  "name": "degreeplanner",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Front-end-only degree audit and program explorer",
+  "scripts": {
+    "build": "tailwindcss -i css/input.css -o css/app.css --minify",
+    "watch": "tailwindcss -i css/input.css -o css/app.css --watch",
+    "serve": "python3 serve.py 8080",
+    "validate": "node tools/validate.mjs && node tools/smoke.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "tailwindcss": "^4.1.0"
+  }
+}

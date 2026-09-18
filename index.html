@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DegreePlanner — Audit and plan your degree</title>
+<meta name="description" content="Upload your transcript to see how close you are to finishing your major, and which other majors and minors you are near completing.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2318181b'/%3E%3Cpath d='M10 22V10h4.5a6 6 0 0 1 0 12H10' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<script>(function(){try{var t=localStorage.getItem('rf.theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}})();</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body class="flex min-h-full flex-col font-sans">
+
+<svg hidden aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-half" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></symbol>
+  <symbol id="i-planned" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.2 2"/><path d="M8 5.5v5M5.5 8h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-circle" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4m11.4-11.4 1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-external" viewBox="0 0 16 16"><path d="M7 3H3.5A1.5 1.5 0 0 0 2 4.5v8A1.5 1.5 0 0 0 3.5 14h8a1.5 1.5 0 0 0 1.5-1.5V9M9 2h5v5M14 2 7 9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<header class="sticky top-0 z-20 border-b border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
+  <div class="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4">
+    <div class="flex items-center gap-3">
+      <a href="./" class="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+        <span class="inline-flex size-6 items-center justify-center rounded bg-zinc-900 font-mono text-[13px] font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">D</span>
+        DegreePlanner
+      </a>
+      <span class="text-zinc-300 dark:text-zinc-700">/</span>
+      <select id="school-select" class="field h-8 border-transparent bg-transparent pr-7 font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800" aria-label="School"></select>
+    </div>
+    <div class="flex items-center gap-1">
+      <span class="mr-2 hidden text-xs text-zinc-500 md:inline">Runs entirely in your browser</span>
+      <button id="theme-toggle" class="btn-icon" type="button" aria-label="Toggle dark mode">
+        <svg class="size-[18px] dark:hidden"><use href="#i-moon"/></svg>
+        <svg class="hidden size-[18px] dark:block"><use href="#i-sun"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:py-8">
+  <input type="file" id="file-input" accept=".pdf,.txt,.csv,.md,text/plain,application/pdf" hidden>
+
+  <!-- Intro / import -->
+  <section id="intro" class="mx-auto max-w-2xl py-6 sm:py-14">
+    <p class="mb-3 font-mono text-xs font-medium uppercase tracking-widest text-zinc-500" id="intro-school"></p>
+    <h1 class="text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">Audit your degree.<br class="hidden sm:block"> See what else is within reach.</h1>
+    <p class="prose-muted mt-4 max-w-xl">Import your transcript to get a requirement-by-requirement audit of your major, then a ranked list of every other major and minor you are already close to finishing.</p>
+
+    <div id="dropzone" class="dropzone mt-8 cursor-pointer p-8 text-center" tabindex="0" role="button" aria-label="Upload transcript">
+      <svg class="mx-auto size-6 text-zinc-400"><use href="#i-upload"/></svg>
+      <p class="mt-3 text-sm font-medium">Drop your unofficial transcript here</p>
+      <p class="mt-1 text-xs text-zinc-500">PDF or text · or click to browse</p>
+    </div>
+
+    <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+      <button id="paste-toggle" class="font-medium text-zinc-700 underline decoration-zinc-300 underline-offset-4 hover:decoration-zinc-600 dark:text-zinc-300 dark:decoration-zinc-600 dark:hover:decoration-zinc-300" type="button">Paste transcript text instead</button>
+      <span class="text-zinc-300 dark:text-zinc-700">·</span>
+      <button id="sample-btn" class="font-medium text-zinc-700 underline decoration-zinc-300 underline-offset-4 hover:decoration-zinc-600 dark:text-zinc-300 dark:decoration-zinc-600 dark:hover:decoration-zinc-300" type="button">Load a sample</button>
+    </div>
+
+    <div id="paste-box" class="mt-4" hidden>
+      <textarea id="paste-text" rows="9" class="field h-auto w-full resize-y py-2 font-mono text-xs leading-5" placeholder="Select everything on your transcript page, copy, and paste here. Any text with course codes works."></textarea>
+      <div class="mt-2 flex gap-2">
+        <button id="parse-btn" class="btn btn-primary" type="button">Import courses</button>
+        <button id="paste-cancel" class="btn btn-ghost" type="button">Cancel</button>
+      </div>
+    </div>
+
+    <div id="intro-status" class="mt-4 text-sm" aria-live="polite"></div>
+
+    <dl class="mt-12 grid gap-6 border-t border-zinc-200 pt-8 text-sm sm:grid-cols-3 dark:border-zinc-800">
+      <div><dt class="font-medium">Private by design</dt><dd class="mt-1 text-zinc-500">Parsing and auditing happen on this page. Your transcript never leaves the browser.</dd></div>
+      <div><dt class="font-medium">Editable results</dt><dd class="mt-1 text-zinc-500">Correct anything the parser misread, add transfer credit, or exclude courses.</dd></div>
+      <div><dt class="font-medium">Catalog-backed</dt><dd class="mt-1 text-zinc-500">Requirements follow the current General Announcements, including cross-listed courses.</dd></div>
+    </dl>
+  </section>
+
+  <!-- Workspace -->
+  <div id="workspace" class="space-y-6" hidden>
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800">
+      <nav class="-mb-px flex gap-6" role="tablist" aria-label="Sections">
+        <button type="button" role="tab" data-tab="audit" class="tab-btn" aria-selected="true">Audit</button>
+        <button type="button" role="tab" data-tab="planner" class="tab-btn" aria-selected="false">Planner <span id="tab-planner-count" class="ml-1 rounded-full bg-zinc-100 px-1.5 font-mono text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300" hidden></span></button>
+      </nav>
+      <div class="flex items-center gap-3 pb-2">
+        <p id="tab-summary" class="text-xs text-zinc-500"></p>
+        <button id="reset-btn" class="btn btn-ghost btn-sm text-zinc-500 hover:text-red-600 dark:hover:text-red-400" type="button" title="Remove the imported transcript, programs, and plan">Reset</button>
+      </div>
+    </div>
+
+    <section class="panel" data-panel="planner">
+      <div class="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <div>
+          <h2 class="text-sm font-semibold">Timeline</h2>
+          <p id="course-summary" class="mt-0.5 text-xs text-zinc-500"></p>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <label class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400"><input type="checkbox" id="include-ip" class="size-3.5 accent-zinc-900 dark:accent-zinc-100" checked> In progress counts</label>
+          <label class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400"><input type="checkbox" id="include-planned" class="size-3.5 accent-zinc-900 dark:accent-zinc-100" checked> Planned counts</label>
+          <div class="flex gap-1">
+            <button id="edit-btn" class="btn btn-ghost btn-sm" type="button" aria-pressed="false">Edit</button>
+            <button id="replace-btn" class="btn btn-ghost btn-sm" type="button">Replace transcript</button>
+          </div>
+        </div>
+      </div>
+      <div id="side-status" class="hidden border-b border-zinc-200 px-4 py-2 text-xs dark:border-zinc-800"></div>
+      <div id="timeline" class="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] items-start gap-2 p-3"></div>
+      <div id="suggest-box" class="border-t border-zinc-200 px-3 py-2.5 dark:border-zinc-800" hidden>
+        <div class="flex items-baseline justify-between gap-3">
+          <h3 class="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Suggested next courses</h3>
+          <span class="text-[11px] text-zinc-500">Ranked by open requirements filled in your programs · hover for details</span>
+        </div>
+        <div id="suggest-list" class="mt-1.5 flex flex-wrap gap-1"></div>
+        <p id="suggest-patterns" class="mt-2 text-[11px] leading-4 text-zinc-500"></p>
+      </div>
+    </section>
+
+    <div class="space-y-8" data-panel="audit">
+    <section>
+      <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-semibold tracking-tight">Your programs</h2>
+          <p class="text-sm text-zinc-500">Declared majors and minors, audited requirement by requirement.</p>
+        </div>
+        <select id="declare-select" class="field max-w-xs" aria-label="Add a program"></select>
+      </div>
+      <div id="declared-audits" class="space-y-3"></div>
+    </section>
+
+    <section>
+      <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-semibold tracking-tight">Within reach</h2>
+          <p class="text-sm text-zinc-500">Every other program, ranked by how much your courses already cover.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="seg" role="group" aria-label="Filter by kind">
+            <button type="button" data-kind="all" class="active">All</button>
+            <button type="button" data-kind="major">Majors</button>
+            <button type="button" data-kind="minor">Minors</button>
+          </div>
+          <select id="sort" class="field" aria-label="Sort programs">
+            <option value="pct">Sort: closest first</option>
+            <option value="remaining">Sort: fewest courses to go</option>
+            <option value="name">Sort: name</option>
+          </select>
+          <input id="search" type="search" class="field w-36 sm:w-48" placeholder="Search" aria-label="Search programs">
+        </div>
+      </div>
+      <div class="panel overflow-hidden">
+        <div id="explore-list" class="divide-y divide-zinc-200 dark:divide-zinc-800"></div>
+        <button id="show-more" class="block w-full border-t border-zinc-200 py-2.5 text-center text-sm font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800/60" type="button" hidden>Show more</button>
+      </div>
+    </section>
+    </div>
+  </div>
+</main>
+
+<div id="drop-overlay" class="pointer-events-none fixed inset-0 z-50 hidden items-center justify-center bg-zinc-950/60 backdrop-blur-sm">
+  <div class="rounded-lg border border-dashed border-white/60 px-10 py-8 text-center text-white">
+    <svg class="mx-auto size-7"><use href="#i-upload"/></svg>
+    <p class="mt-3 text-sm font-medium">Drop to import transcript</p>
+  </div>
+</div>
+
+<footer class="border-t border-zinc-200 dark:border-zinc-800">
+  <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-xs text-zinc-500">
+    <span id="foot-school"></span>
+    <span>Estimates based on the General Announcements, not an official audit. <a class="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800 dark:decoration-zinc-700 dark:hover:text-zinc-200" href="docs/PROGRAM_FORMAT.md">Add a school or program</a></span>
+  </div>
+</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+export default {
+  id: 'history-ba-international-studies-concentration',
+  name: 'History: International Concentration',
+  degree: 'BA',
+  kind: 'major',
+  school: 'Humanities and Arts',
+  url: 'https://ga.rice.edu/programs-study/departments-programs/humanities/history/history-ba-international-studies-concentration/',
+  hours: 30,
+  notes: [
+    'International Concentration: complete a significant study abroad experience and demonstrate research competence in a language other than English (departmental language exam, or an honors thesis / 400-level seminar paper using non-English sources).',
+    'At least 6 of the 10 major courses must be departmental (HIST) courses.',
+    'Geographical Fields courses must come from 3 different fields (Europe and Russia; Northern America; Africa; Asia and Oceania; Latin America and the Caribbean; Middle East; Transnational/Comparative/World).',
+    'A single course may satisfy the Premodern (or Thematic) field and one other field; if so, an additional elective is required so the major still totals 10 courses.',
+    'HIST 403 and HIST 404 do not count as Electives or Seminars; HIST 390 may count only once. AP/IB/A-level credit (HIST 103, 105, 107) does not count toward the major.',
+  ],
+  requirements: [
+    { type: 'group', name: 'Core Requirements', requirements: [
+      { type: 'choose', name: 'Premodern Field', count: 1, from: [
+        'HIST 101', 'HIST 120', 'HIST 200', 'HIST 201', 'HIST 205', 'HIST 206', 'HIST 211', 'HIST 222', 'HIST 226', 'HIST 260', 'HIST 281',
+        'HIST 307', 'HIST 308', 'HIST 316', 'HIST 324', 'HIST 327', 'HIST 357', 'HIST 361', 'HIST 368', 'HIST 392', 'HIST 409', 'HIST 438', 'HIST 440',
+      ]},
+      { type: 'choose', name: 'Geographical Fields (3 of 7 fields)', count: 3, from: [
+        'HIST 101', 'HIST 102', 'HIST 206', 'HIST 225', 'HIST 256', 'HIST 257', 'HIST 324', 'HIST 349', 'HIST 355', 'HIST 356', 'HIST 357',
+        'HIST 358', 'HIST 361', 'HIST 370', 'HIST 372', 'HIST 373', 'HIST 374', 'HIST 375', 'HIST 392', 'HIST 414', 'HIST 438', 'HIST 443', 'HIST 459',
+        'HIST 111', 'HIST 117', 'HIST 118', 'HIST 208', 'HIST 216', 'HIST 221', 'HIST 239', 'HIST 246', 'HIST 259', 'HIST 266', 'HIST 291',
+        'HIST 295', 'HIST 301', 'HIST 315', 'HIST 319', 'HIST 321', 'HIST 330', 'HIST 332', 'HIST 338', 'HIST 339', 'HIST 348', 'HIST 350',
+        'HIST 351', 'HIST 359', 'HIST 380', 'HIST 387', 'HIST 395', 'HIST 396', 'HIST 407', 'HIST 421', 'HIST 423', 'HIST 426', 'HIST 434',
+        'HIST 435', 'HIST 436', 'HIST 464', 'HIST 484',
+        'HIST 222', 'HIST 223', 'HIST 245', 'HIST 248', 'HIST 323', 'HIST 343',
+        'HIST 218', 'HIST 219', 'HIST 271', 'HIST 309', 'HIST 320', 'HIST 345', 'HIST 368', 'HIST 408', 'HIST 430', 'HIST 494',
+        'HIST 176', 'HIST 220', 'HIST 227', 'HIST 228', 'HIST 237', 'HIST 251', 'HIST 312', 'HIST 328', 'HIST 331', 'HIST 354', 'HIST 366', 'HIST 478',
+        'HIST 112', 'HIST 213', 'HIST 275', 'HIST 281', 'HIST 378', 'HIST 491',
+        'HIST 120', 'HIST 211', 'HIST 215', 'HIST 244', 'HIST 249', 'HIST 329', 'HIST 333', 'HIST 365', 'HIST 388', 'HIST 406', 'HIST 412',
+        'HIST 428', 'HIST 429', 'HIST 440', 'HIST 457', 'HIST 461',
+      ], note: 'One course from each of 3 different geographical fields.' },
+      { type: 'choose', name: 'Thematic Field', count: 1, from: [
+        'HIST 207', 'HIST 210', 'HIST 214', 'HIST 230', 'HIST 243', 'HIST 244', 'HIST 249', 'HIST 250', 'HIST 258', 'HIST 260', 'HIST 261',
+        'HIST 262', 'HIST 265', 'HIST 305', 'HIST 310', 'HIST 312', 'HIST 314', 'HIST 319', 'HIST 321', 'HIST 325', 'HIST 328', 'HIST 333',
+        'HIST 338', 'HIST 340', 'HIST 346', 'HIST 348', 'HIST 363', 'HIST 365', 'HIST 373', 'HIST 388', 'HIST 391', 'HIST 405', 'HIST 412',
+        'HIST 413', 'HIST 426', 'HIST 428', 'HIST 445', 'HIST 449', 'HIST 455', 'HIST 457', 'HIST 470', 'HIST 480', 'HIST 497', 'HIST 499',
+      ]},
+    ]},
+    { type: 'choose', name: 'Seminars', count: 2, from: [{ dept: 'HIST', min: 400, max: 499, exclude: ['HIST 403', 'HIST 404'] }],
+      note: 'Any HIST course numbered 400-499 except HIST 403 and HIST 404.' },
+    { type: 'choose', name: 'Elective Requirements', count: 3, from: [{ dept: 'HIST', exclude: ['HIST 403', 'HIST 404'] }] },
+  ],
+};

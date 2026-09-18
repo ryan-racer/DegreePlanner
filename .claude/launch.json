@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "degreeplanner",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "serve.py"
+      ],
+      "port": 8080,
+      "autoPort": true
+    },
+    {
+      "name": "degreeplanner-lan",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "serve.py",
+        "8080",
+        "--lan"
+      ],
+      "port": 8080,
+      "autoPort": false
+    }
+  ]
+}
