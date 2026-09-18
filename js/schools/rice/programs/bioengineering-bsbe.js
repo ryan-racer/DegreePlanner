@@ -6,6 +6,7 @@ export default {
   school: 'Engineering and Computing',
   url: 'https://ga.rice.edu/programs-study/departments-programs/engineering/bioengineering/bioengineering-bsbe/',
   hours: 97,
+  degreeHours: 131,
   notes: [
     'Technical electives must total at least 9 credit hours. BIOE 400, EDES 300 and GLHT 400 may count for at most 6 credit hours combined (at least 3 hours per course in one semester).',
     'BIOE 400 taken for at least 3 credit hours in one semester may replace one Bioengineering Laboratory module (this does not count toward the technical elective allowance).',

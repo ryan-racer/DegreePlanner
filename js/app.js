@@ -9,6 +9,7 @@ import { initCourseAutocomplete, setAutocompleteSchool } from './ui/autocomplete
 import { initSchedule, render as renderSchedule, findSections, distributionSummary, loadSections } from './ui/schedule.js';
 import { autoPlan, seasonPattern, inferGraduation, upcomingTerms } from './engine/autoplan.js';
 import { courseDetails } from './data/courseinfo.js';
+import { auditDegree } from './engine/degree.js';
 
 const $ = (sel) => document.querySelector(sel);
 const PAGE = 15;
@@ -511,7 +512,7 @@ function renderSuggestions(declaredResults, courses) {
   $('#suggest-patterns').textContent = patterns.length ? `Also open: ${patterns.map((pt) => `${pt.count > 1 ? `${pt.count} × ` : ''}${pt.label} for ${pt.program}`).join('; ')}.` : '';
 }
 
-let lastPrepared = [], lastDeclaredResults = [];
+let lastPrepared = [], lastDeclaredResults = [], lastDegree = null;
 
 // ---------- results ----------
 function renderDeclareSelect() {
@@ -562,38 +563,31 @@ function renderResults() {
 let overviewToken = 0;
 function renderOverview(courses, declaredResults) {
   const el = $('#overview'); if (!el) return;
-  const total = courses.reduce((a, c) => a + c.hours, 0);
-  const upper = courses.filter((c) => Number(c.code.slice(-3)) >= 300).reduce((a, c) => a + c.hours, 0);
   const used = new Set(declaredResults.flatMap((r) => r.usedCourses.map((c) => c.key)));
   const unused = courses.filter((c) => !used.has(c.key));
-  const target = school.degreeHours || 120;
-  const tile = (label, value, sub = '') => `<div class="min-w-0"><div class="text-[11px] text-zinc-500">${label}</div><div class="text-base font-semibold tabular-nums leading-tight">${value}</div>${sub ? `<div class="text-[11px] text-zinc-500">${sub}</div>` : ''}</div>`;
-  const distSlot = `<div id="overview-dist" class="min-w-0"><div class="text-[11px] text-zinc-500">Distribution</div><div class="text-base font-semibold tabular-nums leading-tight text-zinc-400">…</div></div>`;
-  el.innerHTML = `<div class="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-      ${tile('Hours', `${total % 1 ? total.toFixed(1) : total}<span class="text-sm font-normal text-zinc-400"> / ${target}</span>`, 'completed, in progress, planned')}
-      ${tile('Upper-level hours', `${upper % 1 ? upper.toFixed(1) : upper}`, '300 level and above')}
-      ${distSlot}
-      <div class="min-w-0"><div class="text-[11px] text-zinc-500">Not used by your programs</div><div class="text-base font-semibold tabular-nums leading-tight">${unused.length}<span class="text-sm font-normal text-zinc-400"> course${unused.length === 1 ? '' : 's'}</span></div>${unused.length ? `<button type="button" id="unused-toggle" class="text-[11px] font-medium text-blue-700 hover:underline dark:text-blue-400">Show</button>` : ''}</div>
-    </div>
-    <div id="unused-list" class="mt-3 hidden flex-wrap gap-1.5"></div>`;
-  if (unused.length) {
-    $('#unused-list').innerHTML = unused.sort((a, b) => a.code.localeCompare(b.code)).map((c) => `<span class="rounded border border-zinc-200 px-1.5 py-0.5 font-mono text-[11px] dark:border-zinc-800"><span class="course-ref cursor-help" data-course="${esc(c.code)}" tabindex="0">${esc(c.code)}</span><span class="ml-1 font-sans text-zinc-500">${c.hours}</span></span>`).join('');
-    $('#unused-toggle').addEventListener('click', (e) => { const l = $('#unused-list'); const open = l.classList.toggle('hidden'); l.classList.toggle('flex', !open); e.target.textContent = open ? 'Show' : 'Hide'; });
-  }
+  const num = (n) => (n % 1 ? n.toFixed(1) : n);
+  const tile = (label, body, sub = '') => `<div class="min-w-0"><div class="text-[11px] text-zinc-500">${label}</div><div class="text-base font-semibold tabular-nums leading-tight">${body}</div>${sub ? `<div class="text-[11px] text-zinc-500">${sub}</div>` : ''}</div>`;
+  const frame = (inner) => `<div class="mb-2 flex items-baseline justify-between gap-3"><h2 class="text-sm font-semibold">University requirements</h2><span class="text-[11px] text-zinc-500">counts completed, in-progress, and planned courses</span></div><div class="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-5">${inner}</div><div id="unused-list" class="mt-3 hidden flex-wrap gap-1.5"></div>`;
+  const unusedTile = `<div class="min-w-0"><div class="text-[11px] text-zinc-500">Not used by your programs</div><div class="text-base font-semibold tabular-nums leading-tight">${unused.length}<span class="text-sm font-normal text-zinc-400"> course${unused.length === 1 ? '' : 's'}</span></div>${unused.length ? `<button type="button" id="unused-toggle" class="text-[11px] font-medium text-blue-700 hover:underline dark:text-blue-400">Show</button>` : ''}</div>`;
+  const wire = () => {
+    if (!unused.length) return;
+    $('#unused-list').innerHTML = [...unused].sort((a, b) => a.code.localeCompare(b.code)).map((c) => `<span class="rounded border border-zinc-200 px-1.5 py-0.5 font-mono text-[11px] dark:border-zinc-800"><span class="course-ref cursor-help" data-course="${esc(c.code)}" tabindex="0">${esc(c.code)}</span><span class="ml-1 font-sans text-zinc-500">${c.hours}</span></span>`).join('');
+    $('#unused-toggle').addEventListener('click', (e) => { const l = $('#unused-list'); const closed = l.classList.toggle('hidden'); l.classList.toggle('flex', !closed); e.target.textContent = closed ? 'Show' : 'Hide'; });
+  };
+  el.innerHTML = frame(tile('Hours', '<span class="text-zinc-400">…</span>') + unusedTile); wire();
   const token = ++overviewToken;
-  distributionSummary(courses, school).then((d) => {
+  const programs = declaredResults.map((r) => r.program);
+  auditDegree({ school, courses, programs, loadDetails: (code) => courseDetails(school, code) }).then((d) => {
     if (token !== overviewToken || !d) return;
-    const slot = $('#overview-dist'); if (!slot) return;
-    slot.innerHTML = `<div class="text-[11px] text-zinc-500">Distribution</div><div class="flex gap-2 text-base font-semibold tabular-nums leading-tight">${d.cfg.groups.map((g, i) => `<span title="${esc(d.have[g].codes.join(', ') || 'none yet')}"><span class="text-[11px] font-normal text-zinc-500">D${i + 1} </span><span class="${d.need[g] ? 'text-amber-600 dark:text-amber-400' : ''}">${Math.min(d.have[g].count, d.cfg.coursesPerGroup)}/${d.cfg.coursesPerGroup}</span></span>`).join('')}</div><div class="text-[11px] text-zinc-500">${d.cfg.coursesPerGroup} courses per group</div>`;
+    lastDegree = d;
+    const warn = 'text-amber-600 dark:text-amber-400', ok = 'text-emerald-600 dark:text-emerald-400';
+    const hoursTile = tile('Hours', `<span class="${d.hours.satisfied ? '' : ''}">${num(d.hours.have)}</span><span class="text-sm font-normal text-zinc-400"> / ${d.hours.need}</span>`, d.hours.need > (school.degree.hours || 120) ? 'your degree requires more than 120' : 'toward the degree');
+    const upperTile = tile('Upper-level hours', `<span class="${d.upper.satisfied ? '' : warn}">${num(d.upper.have)}</span><span class="text-sm font-normal text-zinc-400"> / ${d.upper.need}</span>`, '300 level and above');
+    const distTile = `<div class="min-w-0"><div class="text-[11px] text-zinc-500">Distribution</div><div class="flex gap-2 text-base font-semibold tabular-nums leading-tight">${Object.entries(d.dist).map(([g, v], i) => `<span title="${esc((v.courses.map((c) => c.code).join(', ') || 'none yet') + (v.detail ? ' — ' + v.detail : ''))}"><span class="text-[11px] font-normal text-zinc-500">D${i + 1} </span><span class="${v.satisfied ? '' : warn}">${v.have}/${v.target}</span></span>`).join('')}</div><div class="text-[11px] text-zinc-500">${Object.values(d.dist).some((v) => v.detail) ? Object.entries(d.dist).filter(([, v]) => v.detail).map(([g]) => `Group ${g} needs a second department`).join('; ') : '3 courses per group, 2+ departments'}</div></div>`;
+    const checks = `<div class="min-w-0"><div class="text-[11px] text-zinc-500">Also required</div><div class="flex flex-wrap gap-x-3 gap-y-0.5 text-sm font-medium leading-tight">${d.items.map((it) => `<span class="${it.satisfied ? ok : warn}" title="${esc(it.name)}${it.courses.length ? ': ' + esc(it.courses.map((c) => c.code).join(', ')) : ''}">${it.satisfied ? '✓' : '○'} ${esc(school.degree[it.id]?.short || it.name)}</span>`).join('')}</div><div class="text-[11px] text-zinc-500">writing, activity, diversity</div></div>`;
+    el.innerHTML = frame(hoursTile + upperTile + distTile + checks + unusedTile); wire();
   });
 }
-
-document.addEventListener('keydown', (e) => {
-  if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
-  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
-  const target = state.tab === 'schedule' ? $('#sched-search') : state.tab === 'audit' ? $('#search') : null;
-  if (target && !target.closest('[hidden]')) { e.preventDefault(); target.focus(); target.select(); }
-});
 
 function initResults() {
   window.addEventListener('dp:find-sections', (e) => {

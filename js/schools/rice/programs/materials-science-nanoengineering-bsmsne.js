@@ -16,6 +16,7 @@ export default {
   school: 'Engineering and Computing',
   url: 'https://ga.rice.edu/programs-study/departments-programs/engineering/materials-science-nanoengineering/materials-science-nanoengineering-bsmsne/',
   hours: 90,
+  degreeHours: 124,
   notes: [
     'Cluster electives: 300-level or above Engineering courses may satisfy the Engineering Cluster and 300-level or above Natural Sciences courses the Math and Science Cluster, but courses not on the pre-approved lists need advisor approval.',
     'ELEC 241 and ELEC 240 must be taken together to count for the Engineering Cluster.',

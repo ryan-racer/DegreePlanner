@@ -14,6 +14,7 @@ export default {
   school: 'Engineering and Computing',
   url: 'https://ga.rice.edu/programs-study/departments-programs/engineering/mechanical-engineering/mechanical-engineering-bsme/',
   hours: 87,
+  degreeHours: 127,
   notes: [
     'Technical electives: 3 courses (9 hours) in one area of specialization. A course used as the area core requirement may not also count as an area elective.',
     'DSCI 305 may not be used as the Limited Elective.',

@@ -9,6 +9,9 @@ import glob, html, json, os, re, sys
 from collections import defaultdict
 
 desc = json.load(open(sys.argv[1]))
+# Optional: ad.json beside descriptions.json lists Analyzing Diversity courses.
+_ad_path = os.path.join(os.path.dirname(sys.argv[1]), 'ad.json')
+AD = set(json.load(open(_ad_path))) if os.path.exists(_ad_path) else set()
 sched_dir = sys.argv[2] if len(sys.argv) > 2 else None
 terms = sys.argv[3:]
 offered = defaultdict(set)
@@ -28,6 +31,7 @@ by_dept = defaultdict(dict)
 for code in set(desc) | set(offered):
     rec = dict(desc.get(code, {}))
     if code in offered: rec['o'] = sorted(offered[code])
+    if code in AD: rec['ad'] = 1
     by_dept[code.split(' ')[0]][code] = rec
 os.makedirs('data/rice/courses', exist_ok=True)
 for dept, m in by_dept.items():

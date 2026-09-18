@@ -11,6 +11,7 @@ export default {
   school: 'Engineering and Computing',
   url: 'https://ga.rice.edu/programs-study/departments-programs/engineering/civil-environmental-engineering/environmental-engineering-bsenve/',
   hours: 93,
+  degreeHours: 124,
   notes: [
     'Area of Specialization: 10 courses (30 hours) total - 4 in the chosen area and 2 from each of the other three areas. At least 7 of the 10 must be CEVE courses. Other approved CEVE courses may count in the chosen area.',
     'PHYS 141 credit is not eligible for the major.',

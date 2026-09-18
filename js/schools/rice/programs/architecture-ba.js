@@ -6,6 +6,7 @@ export default {
   school: 'Architecture',
   url: 'https://ga.rice.edu/programs-study/departments-programs/architecture/architecture/architecture-ba/',
   hours: 75,
+  degreeHours: 130,
   notes: [
     'The BA in Architecture is a 130-hour degree: beyond the 75-hour major, 55 elective hours are required, 45 of which must be outside ARCH course offerings and 10 of which are free electives.',
     'Required ARCH courses must be taken in the sequence and semester prescribed by the School of Architecture.',

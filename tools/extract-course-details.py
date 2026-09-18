@@ -17,7 +17,7 @@ for f in glob.glob(os.path.join(work, 'courses', '*.html')):
         catalog[code] = [m.group(3).strip(), float(ch.group(1)) if ch else 3]
         field = lambda name: (lambda mm: clean(mm.group(1)) if mm else '')(re.search(r'<strong>' + name + r':\s*</strong>(.*?)</p>', blk, re.S))
         rec = {'d': field('Description')}
-        for k, name in [('dist', 'Distribution Group'), ('pre', 'Prerequisite\\(s\\)'), ('level', 'Course Level'), ('type', 'Course Type'), ('grade', 'Grade Mode'), ('restr', 'Restrictions')]:
+        for k, name in [('dist', 'Distribution Group'), ('pre', 'Prerequisite\\(s\\)'), ('co', 'Corequisites?'), ('level', 'Course Level'), ('type', 'Course Type'), ('grade', 'Grade Mode'), ('restr', 'Restrictions')]:
             v = field(name)
             if v: rec[k] = v
         x = re.search(r'Cross-list(?:ed)?:\s*</strong>(.*?)</p>', blk, re.S)

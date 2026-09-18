@@ -57,3 +57,37 @@ test('pattern slots and distribution needs become placeholders; user entries are
   assert.equal(r.placeholders.filter((p) => /elective/.test(p.label)).length, 1, 'one pattern slot is still open after the user course');
   assert.equal(r.placeholders.filter((p) => /Distribution I/.test(p.label)).length, 1);
 });
+
+import { conflictFree, standingAllows, standingFor } from '../js/engine/autoplan.js';
+
+test('summer terms are optional', () => {
+  assert.deepEqual(upcomingTerms('Spring 2026', 3, true), ['Summer 2026', 'Fall 2026', 'Spring 2027']);
+});
+
+test('class standing restrictions', () => {
+  assert.equal(standingFor(95), 'Senior');
+  assert.equal(standingAllows('Enrollment is limited to students with a class of Junior or Senior.', 'Sophomore'), false);
+  assert.equal(standingAllows('Enrollment is limited to students with a class of Junior or Senior.', 'Senior'), true);
+  assert.equal(standingAllows('Students with a class of Freshman may not enroll.', 'Freshman'), false);
+  assert.equal(standingAllows('Enrollment is limited to Undergraduate level students.', 'Freshman'), true);
+});
+
+test('conflictFree finds a clash-free section choice when one exists', () => {
+  const sec = (days, start, end) => ({ meetings: [{ days, start, end }] });
+  assert.equal(conflictFree([[sec('MWF', 600, 650)], [sec('MWF', 600, 650), sec('TR', 600, 675)]]), true);
+  assert.equal(conflictFree([[sec('MWF', 600, 650)], [sec('MW', 620, 700)]]), false);
+  assert.equal(conflictFree([[sec('MWF', 600, 650)], [{ meetings: [] }]]), true);
+});
+
+test('co-requisites join the same term and real sections veto clashing terms', async () => {
+  const d2 = { ...details, 'CS 310': { ...details['CS 310'], co: 'CS 360' } };
+  const r = await autoPlan({ school, programs: [prog([{ type: 'course', name: 'Systems', options: ['CS 310'] }, { type: 'course', name: 'Data', options: ['CS 201'] }])], courses: base, plan: [], hoursPerTerm: 16, loadDetails: async (code) => d2[code] || null });
+  assert.equal(where(r, 'CS 310'), where(r, 'CS 360'), 'the co-requisite is planned alongside');
+  assert.match(where(r, 'CS 360'), /^Spring/, 'and the pair waits for a term the co-requisite runs in');
+});
+
+test('degree needs become placeholders up to the hour total', async () => {
+  const r = await autoPlan({ school: { ...school, degree: { hours: 20, writing: { name: 'Writing', short: 'FWIS', from: [{ dept: 'FWIS' }] } } }, programs: [prog([{ type: 'course', name: 'Data', options: ['CS 201'] }])], courses: base, plan: [], hoursPerTerm: 16, loadDetails, degreeNeed: { missing: ['writing'], hoursNeed: 20 } });
+  assert.ok(r.placeholders.some((p) => /FWIS/.test(p.label)));
+  assert.ok(r.totalHours >= 20, 'free electives fill the hour gap');
+});

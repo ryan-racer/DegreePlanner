@@ -5,7 +5,8 @@ import { esc, titleCase } from './render.js';
 import { termName } from './coursecard.js';
 import { suggestCourses } from '../engine/audit.js';
 import { courseMatchesSpec, aliasesFor } from '../engine/match.js';
-import { loadDept as loadDeptShared, prereqStatus } from '../data/courseinfo.js';
+import { loadDept as loadDeptShared, prereqStatus, courseDetails } from '../data/courseinfo.js';
+import { auditDegree } from '../engine/degree.js';
 
 const sectionCache = new Map(); // term -> Promise<Section[]>
 const DAY_ORDER = ['M', 'T', 'W', 'R', 'F', 'S', 'U'];
@@ -266,20 +267,13 @@ function renderSelected(selected, sections) {
   }).join('') || '<p class="py-2 text-xs text-zinc-500">Add sections from the list, or search for a course.</p>';
 }
 
-/** Which distribution groups still need courses, from everything taken, in progress, or planned. */
+/** Distribution progress from the university requirements audit: { have, need, cfg } keyed by group. */
 export async function distributionSummary(courses, school = ctx?.school) {
-  const cfg = school?.distribution;
-  if (!cfg) return null;
-  if (!ctx) ctx = { school };
-  const depts = [...new Set(courses.map((c) => c.code.split(' ')[0]))];
-  const data = Object.assign({}, ...(await Promise.all(depts.map(loadDept))));
-  const have = {}; for (const g of cfg.groups) have[g] = { count: 0, hours: 0, codes: [] };
-  for (const c of courses) {
-    const g = (data[c.code]?.dist || '').replace('Distribution Group ', '');
-    if (have[g]) { have[g].count++; have[g].hours += c.hours; have[g].codes.push(c.code); }
-  }
-  const need = {}; for (const g of cfg.groups) need[g] = Math.max(0, cfg.coursesPerGroup - have[g].count, Math.ceil(Math.max(0, cfg.hoursPerGroup - have[g].hours) / 3));
-  return { have, need, cfg };
+  if (!school?.degree?.distribution) return null;
+  const d = await auditDegree({ school, courses, loadDetails: (code) => courseDetails(school, code) });
+  const have = {}, need = {};
+  for (const [g, v] of Object.entries(d.dist)) { have[g] = { count: v.have, codes: v.courses.map((c) => c.code), detail: v.detail }; need[g] = v.need; }
+  return { have, need, cfg: { groups: school.degree.distribution.groups, coursesPerGroup: school.degree.distribution.courses } };
 }
 
 async function renderCandidates() {

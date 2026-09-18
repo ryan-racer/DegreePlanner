@@ -20,13 +20,40 @@ export function termKey(name) { const m = (name || '').match(/(Spring|Summer|Fal
 export function termCodeFor(name) { const m = (name || '').match(/(Spring|Summer|Fall)\s+(\d{4})/i); if (!m) return null; const y = Number(m[2]); const s = m[1].toLowerCase(); return s === 'fall' ? `${y + 1}10` : s === 'spring' ? `${y}20` : `${y}30`; }
 
 /** Fall/Spring term names following `afterName` (or today), `count` of them. */
-export function upcomingTerms(afterName, count) {
+export function upcomingTerms(afterName, count, includeSummers = false) {
   let key = termKey(afterName);
   if (!key) { const now = new Date(); key = now.getFullYear() * 10 + (now.getMonth() < 5 ? 1 : now.getMonth() < 8 ? 2 : 3); }
   let year = Math.floor(key / 10), season = key % 10;
   const out = [];
-  while (out.length < count) { if (season === 3) { year += 1; season = 1; } else { season = 3; } out.push(`${season === 1 ? 'Spring' : 'Fall'} ${year}`); }
+  while (out.length < count) {
+    if (season === 3) { year += 1; season = 1; } else if (season === 1 && includeSummers) { season = 2; } else { season = 3; }
+    out.push(`${season === 1 ? 'Spring' : season === 2 ? 'Summer' : 'Fall'} ${year}`);
+  }
   return out;
+}
+
+/** Class standing by credit hours earned before a term. */
+export function standingFor(hours) { return hours >= 90 ? 'Senior' : hours >= 60 ? 'Junior' : hours >= 30 ? 'Sophomore' : 'Freshman'; }
+/** Does a catalog restriction sentence allow a student of this standing? Unknown phrasing allows. */
+export function standingAllows(restr, standing) {
+  if (!restr) return true;
+  const only = restr.match(/limited to[^.]*?class(?:es)? of ([^.]+)\./i);
+  if (only && /(Freshman|Sophomore|Junior|Senior)/.test(only[1])) return new RegExp(standing, 'i').test(only[1]);
+  const not = restr.match(/class(?:es)? of ([^.]+?) may not/i);
+  if (not) return !new RegExp(standing, 'i').test(not[1]);
+  return true;
+}
+
+/** Can one section per course be chosen with no time overlap? `options` is an array of section arrays. */
+export function conflictFree(options) {
+  const clash = (a, b) => a.meetings.some((x) => b.meetings.some((y) => x.start < y.end && y.start < x.end && [...x.days].some((d) => y.days.includes(d))));
+  const pick = (i, chosen) => {
+    if (i === options.length) return true;
+    const timed = options[i].filter((s) => s.meetings?.length);
+    if (!timed.length) return pick(i + 1, chosen); // untimed sections never clash
+    return timed.some((s) => !chosen.some((c) => clash(s, c)) && pick(i + 1, [...chosen, s]));
+  };
+  return pick(0, []);
 }
 
 /** Share of the last three `season` terms in which the course ran: 0..1, or null with no data. */
@@ -57,10 +84,11 @@ export function inferGraduation(courses) {
 /**
  * @returns {Promise<{ plan, placed, placeholders, unplaced, satisfied, target, lastTerm, beyondTarget, plannedHours, totalHours, degreeHours }>}
  */
-export async function autoPlan({ school, programs, courses, plan, hoursPerTerm, graduateBy, loadDetails, loadSections, overrides = {}, distNeed = {} }) {
+export async function autoPlan({ school, programs, courses, plan, hoursPerTerm, graduateBy, loadDetails, loadSections, overrides = {}, distNeed = {}, degreeNeed = null, includeSummers = false }) {
   const cap = Math.min(Number(hoursPerTerm) || 16, school.maxTermHours || 18);
   const latest = courses.map((c) => c.term).filter(Boolean).sort((a, b) => termKey(b) - termKey(a))[0];
-  const termNames = upcomingTerms(latest, 14);
+  const termNames = upcomingTerms(latest, includeSummers ? 20 : 14, includeSummers);
+  const capFor = (name) => (name.startsWith('Summer') ? Math.min(cap, school.maxSummerHours || 8) : cap);
   const target = graduateBy && termNames.includes(graduateBy) ? graduateBy : inferGraduation(courses);
   const horizon = Math.max(1, termNames.indexOf(target) + 1);
 
@@ -72,15 +100,20 @@ export async function autoPlan({ school, programs, courses, plan, hoursPerTerm, 
 
   const detailsCache = new Map();
   const details = async (code) => { if (!detailsCache.has(code)) detailsCache.set(code, await loadDetails(code)); return detailsCache.get(code); };
-  const sectionCodes = new Map(); // term name -> Set of codes actually scheduled, when the school has that term's data
+  const sectionMaps = new Map(); // term name -> Map(code -> sections[]) when the school has that term's real schedule
   const scheduledIn = async (name) => {
-    if (sectionCodes.has(name)) return sectionCodes.get(name);
+    if (sectionMaps.has(name)) return sectionMaps.get(name);
     const code = termCodeFor(name);
-    let set = null;
-    if (loadSections && code && (school.sectionTerms || []).includes(code)) { const secs = await loadSections(code); if (secs?.length) set = new Set(secs.map((s) => s.code)); }
-    sectionCodes.set(name, set);
-    return set;
+    let map = null;
+    if (loadSections && code && (school.sectionTerms || []).includes(code)) {
+      const secs = await loadSections(code);
+      if (secs?.length) { map = new Map(); for (const sec of secs) { if (!map.has(sec.code)) map.set(sec.code, []); map.get(sec.code).push(sec); } }
+    }
+    sectionMaps.set(name, map);
+    return map;
   };
+  const earnedBase = prepareCourses(courses, school, {}).reduce((a, c) => a + c.hours, 0);
+  const hoursBefore = (name) => earnedBase + work.filter((t) => termKey(t.term) < termKey(name)).reduce((a, t) => a + t.courses.reduce((x, c) => x + hoursOf(c), 0), 0);
 
   const audit = () => {
     const planned = work.flatMap((t) => t.courses.filter((c) => c.code).map((c) => ({ code: c.code, hours: c.hours, status: 'planned', term: t.term })));
@@ -141,8 +174,21 @@ export async function autoPlan({ school, programs, courses, plan, hoursPerTerm, 
           if (real ? !real.has(cand.code) : rel === 0) { const lab = seasonPattern(d, school.scheduleTerms).label; reason = real ? `no sections in ${name}` : /only/.test(lab) ? `has only run in ${lab.replace(' only', '')} terms` : 'has not been offered recently'; continue; }
           const pre = prereqStatus(d?.pre, codesBefore(name));
           if (pre.met === false) { reason = `needs ${pre.codes.filter((c) => !c.ok).map((c) => c.code).join(', ')} first`; continue; }
-          if (load(name) + h > (pass === 'soft' ? soft : cap)) { reason = reason || 'every term is at the hours cap'; continue; }
-          found = { i, name, rel, real: !!real };
+          if (!standingAllows(d?.restr, standingFor(hoursBefore(name)))) { reason = 'restricted by class standing'; continue; }
+          // Co-requisites travel with the course: anything not already taken or planned by then joins the same term.
+          const sameTerm = new Set([...codesBefore(name), ...(work.find((x) => x.term === name)?.courses || []).map((c) => c.code)]);
+          const coreqs = prereqNeeds(d?.co, sameTerm).filter((c) => school.catalog?.[c]);
+          let coreqBlocked = false;
+          for (const co of coreqs) { const r = reliability(await details(co), season, school.scheduleTerms); if (real ? !real.has(co) : r === 0) coreqBlocked = true; }
+          if (coreqBlocked) { reason = `its co-requisite does not run in ${season.toLowerCase()} terms`; continue; }
+          const bundleHours = h + coreqs.reduce((a, c) => a + hoursOf({ code: c }), 0);
+          if (load(name) + bundleHours > Math.min(pass === 'soft' ? soft : cap, capFor(name))) { reason = reason || 'every term is at the hours cap'; continue; }
+          if (real) {
+            if (coreqs.some((c) => !real.has(c))) { reason = `co-requisite has no sections in ${name}`; continue; }
+            const inTerm = (work.find((x) => x.term === name)?.courses || []).filter((c) => c.code && real.has(c.code)).map((c) => real.get(c.code));
+            if (!conflictFree([...inTerm, real.get(cand.code), ...coreqs.map((c) => real.get(c))])) { reason = `every section clashes with your other ${name} courses`; continue; }
+          }
+          found = { i, name, rel, real: !!real, coreqs };
         }
         if (found) break;
       }
@@ -169,32 +215,48 @@ export async function autoPlan({ school, programs, courses, plan, hoursPerTerm, 
     ].filter(Boolean).join(' · ');
     termOf(best.found.name).courses.push({ code: best.cand.code, hours: best.h, auto: true, why });
     placed.push({ code: best.cand.code, term: best.found.name, unknownOffering: best.found.rel === null && !best.found.real, prereqFor: best.cand.prereqFor || null, why, season });
+    for (const co of best.found.coreqs || []) {
+      termOf(best.found.name).courses.push({ code: co, hours: hoursOf({ code: co }), auto: true, why: `co-requisite of ${best.cand.code}, taken in the same term` });
+      placed.push({ code: co, term: best.found.name, coreqOf: best.cand.code, why: `co-requisite of ${best.cand.code}` });
+    }
   }
 
   // Placeholders for what only the student can choose: pattern electives, then distribution groups.
   const placeholders = [];
-  const addPlaceholder = (label, hours, why) => {
-    const names = termNames.slice(0, Math.max(horizon, 1));
+  const addPlaceholder = (label, hours, why, extra = {}) => {
+    const names = termNames.slice(0, Math.max(horizon, 1)).filter((n) => !n.startsWith('Summer'));
     let pick = names.filter((n) => load(n) + hours <= cap).sort((a, b) => load(a) - load(b) || termKey(a) - termKey(b))[0];
-    if (!pick) pick = termNames.find((n) => load(n) + hours <= cap) || termNames.at(-1);
-    termOf(pick).courses.push({ code: '', label, hours, auto: true, why });
-    placeholders.push({ label, term: pick });
+    if (!pick) pick = termNames.find((n) => !n.startsWith('Summer') && load(n) + hours <= cap) || termNames.at(-1);
+    termOf(pick).courses.push({ code: '', label, hours, auto: true, why, ...extra });
+    placeholders.push({ label, term: pick, ...extra });
   };
-  for (const pt of patterns) for (let k = 0; k < (pt.count || 1); k++) addPlaceholder(pt.label.replace(/ course$/, ' elective'), 3, `Your choice: any ${pt.label} for ${pt.program.replace(/\s*\(.*\)$/, '')}`);
+  for (const pt of patterns) for (let k = 0; k < (pt.count || 1); k++) addPlaceholder(pt.label.replace(/ course$/, ' elective'), 3, `Your choice: any ${pt.label} for ${pt.program.replace(/\s*\(.*\)$/, '')}`, { kind: 'pattern', spec: pt.spec });
   // Re-check distribution after the concrete courses, since some of them carry a distribution group.
   const distLeft = { ...distNeed };
   for (const p of placed) { const g = ((await details(p.code))?.dist || '').replace('Distribution Group ', ''); if (distLeft[g] > 0) distLeft[g]--; }
-  for (const [g, n] of Object.entries(distLeft)) for (let k = 0; k < n; k++) addPlaceholder(`Distribution ${g} course`, 3, `Your choice: any Distribution Group ${g} course`);
+  for (const [g, n] of Object.entries(distLeft)) for (let k = 0; k < n; k++) addPlaceholder(`Distribution ${g} course`, 3, `Your choice: any Distribution Group ${g} course`, { kind: 'dist', dist: g });
+  // Remaining university requirements, then free electives up to the degree's hour total.
+  if (degreeNeed) {
+    const cfg = school.degree || {};
+    let adLeft = degreeNeed.missing?.includes('diversity') ? 1 : 0;
+    for (const p of placed) if (adLeft && (await details(p.code))?.ad) adLeft = 0;
+    if (degreeNeed.missing?.includes('writing')) addPlaceholder(`${cfg.writing?.short || 'Writing'} seminar`, 3, `Required: ${cfg.writing?.name || 'writing seminar'}`, { kind: 'pattern', spec: cfg.writing?.from?.[0] });
+    if (degreeNeed.missing?.includes('activity')) addPlaceholder(`${cfg.activity?.short || 'Activity'} course`, 1, `Required: ${cfg.activity?.name || 'activity course'}`, { kind: 'pattern', spec: cfg.activity?.from?.[0] });
+    if (adLeft) addPlaceholder('Analyzing Diversity course', 3, 'Required: one Analyzing Diversity course of 3+ hours', { kind: 'diversity' });
+    const plannedSoFar = work.reduce((a, t) => a + t.courses.reduce((x, c) => x + hoursOf(c), 0), 0);
+    let gap = (degreeNeed.hoursNeed || 0) - (earnedBase + plannedSoFar);
+    for (let k = 0; gap > 0 && k < 16; k++) { const hrs = Math.min(3, Math.max(1, Math.ceil(gap))); addPlaceholder('Free elective', hrs, 'Any course: hours toward the degree total', { kind: 'free' }); gap -= hrs; }
+  }
 
   work.sort((a, b) => termKey(a.term) - termKey(b.term));
   const finalPlan = work.filter((t) => t.courses.length);
   const lastTerm = finalPlan.at(-1)?.term || null;
   const plannedHours = finalPlan.reduce((a, t) => a + t.courses.reduce((x, c) => x + hoursOf(c), 0), 0);
-  const earned = prepareCourses(courses, school, {}).reduce((a, c) => a + c.hours, 0);
+  const earned = earnedBase;
   return {
     plan: finalPlan, placed, placeholders, satisfied, target, lastTerm,
     beyondTarget: lastTerm ? termKey(lastTerm) > termKey(target) : false,
     unplaced: satisfied ? [] : [...unplaced.entries()].map(([code, reason]) => ({ code, reason })),
-    plannedHours, totalHours: earned + plannedHours, degreeHours: school.degreeHours || 120, softLoad: soft,
+    plannedHours, totalHours: earned + plannedHours, degreeHours: degreeNeed?.hoursNeed || school.degree?.hours || 120, softLoad: soft,
   };
 }

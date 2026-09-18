@@ -11,6 +11,7 @@ export default {
   school: 'Engineering and Computing',
   url: 'https://ga.rice.edu/programs-study/departments-programs/engineering/civil-environmental-engineering/civil-engineering-bsce/',
   hours: 94,
+  degreeHours: 125,
   notes: [
     'Area of Specialization: 10 courses (30 hours) total - 4 in the chosen area and 2 from each of the other three areas. Other approved courses from CEVE (Area III also MECH; Area IV also CMOR, ECON, MGMT, STAT) may count with approval.',
     'Students in Areas I or II take CEVE 316 as the core lab; students in Areas III or IV take CEVE 472.',

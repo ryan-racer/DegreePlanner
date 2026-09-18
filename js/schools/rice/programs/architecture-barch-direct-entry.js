@@ -6,6 +6,7 @@ export default {
   school: 'Architecture',
   url: 'https://ga.rice.edu/programs-study/departments-programs/architecture/architecture/architecture-barch-direct-entry/',
   hours: 137,
+  degreeHours: 192,
   notes: [
     'The BArch (direct entry) is a 192-hour degree: beyond the 137-hour major, 55 elective hours are required, 45 of which must be outside ARCH course offerings and 10 of which are free electives.',
     'Preceptorship: a 9-12 month internship taken as two semesters of ARCH 500 (S/U grading; must earn Satisfactory).',

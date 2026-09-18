@@ -28,8 +28,14 @@ export default {
   sectionDataPath: 'data/rice/schedule/',
   sectionTerms,
   sectionDataDate,
-  // University distribution requirement: courses per group.
-  distribution: { groups: ['I', 'II', 'III'], coursesPerGroup: 3, hoursPerGroup: 9 },
+  // University-wide graduation requirements (General Announcements, Graduation Requirements).
+  degree: {
+    hours: 120, upperLevelHours: 48, upperLevel: 300,
+    writing: { name: 'First-Year Writing Intensive Seminar', short: 'FWIS', from: [{ dept: 'FWIS' }] },
+    activity: { name: 'Lifetime Physical Activity Program', short: 'LPAP', from: [{ dept: 'LPAP' }], maxHoursCounted: 4 },
+    distribution: { groups: ['I', 'II', 'III'], courses: 3, minHours: 3, minDepartments: 2 },
+    diversity: { name: 'Analyzing Diversity', short: 'AD', minHours: 3 },
+  },
   programs,
   crosslist,
   catalog,

@@ -25,6 +25,7 @@ export default {
   school: 'Engineering and Computing',
   url: 'https://ga.rice.edu/programs-study/departments-programs/engineering/electrical-computer-engineering/electrical-computer-engineering-bsece/',
   hours: 82,
+  degreeHours: 125,
   notes: [
     'Area of Specialization: 6 courses (18 hours) from at least two areas - at least 3 from the chosen area, 1 from a different area, and 2 from any area. ELEC 500-level graduate courses may count with permission.',
     'The required Design Laboratory does not count as a specialization course; a second design lab counts only as a general elective.',
