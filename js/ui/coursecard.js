@@ -85,9 +85,20 @@ function offeringSummary(offered, allTerms) {
   const sometimes = Object.entries(bySeason).filter(([, v]) => v.hit && v.hit < v.total).map(([k]) => k);
   const last = [...set].sort().at(-1);
   let line;
-  if (always.length) line = `Offered every ${always.join(' and ')}${sometimes.length ? `, sometimes ${sometimes.join('/')}` : ''}.`;
-  else if (sometimes.length) line = `Offered some ${sometimes.join('/')} terms; last in ${termName(last)}.`;
-  else line = `Last offered ${termName(last)}.`;
+  if (always.length) {
+    line = `Offered every ${always.join(' and ')}${sometimes.length ? `, sometimes ${sometimes.join('/')}` : ''}.`;
+    const only = always.filter((x) => x !== 'Summer');
+    if (only.length === 1 && !sometimes.filter((x) => x !== 'Summer').length) {
+      // Fall-only or spring-only: predict the next run from the last covered term.
+      const lastCovered = String((allTerms || []).at(-1) || '');
+      let y = Number(lastCovered.slice(0, 4)), sfx = lastCovered.slice(4);
+      let next = '';
+      for (let i = 0; i < 4 && !next; i++) { if (sfx === '10') { sfx = '20'; } else if (sfx === '20') { sfx = '30'; } else { sfx = '10'; y += 1; } if ((only[0] === 'Fall' && sfx === '10') || (only[0] === 'Spring' && sfx === '20')) next = termName(`${y}${sfx}`); }
+      if (next) line = `${only[0]} only so far, so expect it next in ${next}.`;
+    }
+  }
+  if (!always.length && sometimes.length) line = `Offered some ${sometimes.join('/')} terms; last in ${termName(last)}.`;
+  if (!always.length && !sometimes.length) line = `Last offered ${termName(last)}.`;
   const chips = (allTerms || []).filter((t) => String(t).slice(4) !== '30').slice(-8).map((t) => ({ name: termName(t).replace('Spring', 'Sp').replace('Fall', 'Fa'), on: set.has(String(t)) }));
   return { line, chips };
 }

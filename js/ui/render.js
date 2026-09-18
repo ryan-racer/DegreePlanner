@@ -8,6 +8,7 @@ const icon = (id, cls = '') => `<svg class="size-4 shrink-0 ${cls}" aria-hidden=
  * One program row. `variant` is 'card' (declared programs, standalone bordered block) or 'row' (explorer list item).
  */
 export function programCard(result, { expanded, declared, school, variant = 'row' }) {
+  EDIT = declared ? result.program.id : null;
   const p = result.program;
   const pct = Math.round(result.pct * 100);
   const done = result.satisfied;
@@ -47,6 +48,8 @@ export function programCard(result, { expanded, declared, school, variant = 'row
   </article>`;
 }
 
+let EDIT = null; // program id whose open slots offer a manual substitution
+
 function statusText(n) {
   if (n.kind === 'hours') return `${n.earned} / ${n.need} hrs`;
   return `${n.total - n.remaining} / ${n.total}`;
@@ -74,22 +77,23 @@ function nodeHtml(n, school, depth) {
     }
     case 'course':
     case 'all':
-      return `<div class="${indent}">${heading(n, depth)}${note}${n.slots.map((s) => slotHtml(s.course, s.specs, school)).join('')}</div>`;
+      return `<div class="${indent}">${heading(n, depth)}${note}${n.slots.map((s) => slotHtml(s.course, s.specs, school, null, null, { key: s.key, manual: s.manual })).join('')}</div>`;
     case 'choose': {
-      const rows = n.filled.map((c) => slotHtml(c, null, school)).join('');
-      const missing = (n.missing || []).map((m) => slotHtml(null, m.specs, school, null, m.label)).join('');
+      const rows = n.filled.map((c) => slotHtml(c, null, school, null, null, { key: n.path, manual: n.manual?.has(c.key) })).join('');
+      const missing = (n.missing || []).map((m) => slotHtml(null, m.specs, school, null, m.label, { key: n.path })).join('');
       return `<div class="${indent}">${heading(n, depth)}${note}${rows}${missing}</div>`;
     }
     case 'hours': {
-      const rows = n.filled.map((c) => slotHtml(c, null, school)).join('');
-      const missing = n.remaining > 0 ? slotHtml(null, n.node.from, school, `${n.need - n.earned} more hrs`) : '';
+      const rows = n.filled.map((c) => slotHtml(c, null, school, null, null, { key: n.path, manual: n.manual?.has(c.key) })).join('');
+      const missing = n.remaining > 0 ? slotHtml(null, n.node.from, school, `${n.need - n.earned} more hrs`, null, { key: n.path }) : '';
       return `<div class="${indent}">${heading(n, depth)}${note}${rows}${missing}</div>`;
     }
     default: return '';
   }
 }
 
-function slotHtml(course, specs, school, prefix, label) {
+function slotHtml(course, specs, school, prefix, label, ov = {}) {
+  const sub = EDIT && ov.key ? `<button type="button" class="shrink-0 text-[11px] font-medium text-blue-700 hover:underline dark:text-blue-400" data-ov-add="${esc(ov.key)}" data-prog="${esc(EDIT)}" title="Count one of your courses here (for advisor-approved substitutions)">Substitute</button>` : '';
   if (course) {
     const ip = course.status === 'in-progress';
     const planned = course.status === 'planned';
@@ -99,10 +103,11 @@ function slotHtml(course, specs, school, prefix, label) {
       ${icon(planned ? 'i-planned' : ip ? 'i-half' : 'i-check', planned ? 'text-sky-500' : ip ? 'text-amber-500' : 'text-emerald-600 dark:text-emerald-400')}
       <span class="course-ref shrink-0 cursor-help whitespace-nowrap font-mono text-[13px] underline decoration-dotted decoration-zinc-300 underline-offset-4 hover:decoration-zinc-500 dark:decoration-zinc-600" data-course="${esc(course.code)}" tabindex="0">${esc(course.code)}</span>
       <span class="min-w-0 truncate text-zinc-500">${esc(titleCase(title))}</span>
+      ${ov.manual ? `<span class="rounded bg-violet-50 px-1 text-[10px] font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300" title="Manual substitution">manual</span>${EDIT ? `<button type="button" class="text-[11px] text-zinc-500 hover:underline" data-ov-remove="${esc(ov.key)}" data-code="${esc(course.code)}" data-prog="${esc(EDIT)}">undo</button>` : ''}` : ''}
       <span class="ml-auto hidden shrink-0 font-mono text-[11px] tabular-nums text-zinc-400 sm:inline">${esc(right)}</span></div>`;
   }
   const list = specs || [];
-  if (label) return `<div class="flex items-center gap-2 py-1 text-sm">${icon('i-circle', 'text-zinc-300 dark:text-zinc-600')}<span class="text-zinc-500">${esc(label)}</span></div>`;
+  if (label) return `<div class="flex items-center gap-2 py-1 text-sm">${icon('i-circle', 'text-zinc-300 dark:text-zinc-600')}<span class="min-w-0 flex-1 text-zinc-500">${esc(label)}</span>${sub}</div>`;
   const labels = list.map((s) => typeof s === 'string'
     ? `<span class="course-ref cursor-help whitespace-nowrap font-mono text-[13px] text-zinc-700 underline decoration-dotted decoration-zinc-300 underline-offset-4 hover:decoration-zinc-500 dark:text-zinc-300 dark:decoration-zinc-600" data-course="${esc(s)}" tabindex="0">${esc(s)}</span>`
     : `<span class="whitespace-nowrap font-mono text-[13px] text-zinc-700 dark:text-zinc-300">${esc(specLabel(s, null))}</span>`);
@@ -112,7 +117,7 @@ function slotHtml(course, specs, school, prefix, label) {
   const rest = labels.length > MAX ? `<button type="button" class="more-opts ml-1 text-xs font-medium text-blue-700 hover:underline dark:text-blue-400" data-more="${esc(list.slice(MAX).map((s) => specLabel(s, null)).join(', '))}">+${labels.length - MAX} more</button>` : '';
   return `<div class="flex items-center gap-2 py-1 text-sm">
     ${icon('i-circle', 'text-zinc-300 dark:text-zinc-600')}
-    <span class="min-w-0">${prefix ? `<span class="text-zinc-500">${esc(prefix)} from </span>` : ''}${shown}${rest}${single ? `<span class="ml-2 truncate text-zinc-500">${esc(titleCase(single))}</span>` : ''}</span></div>`;
+    <span class="min-w-0 flex-1">${prefix ? `<span class="text-zinc-500">${esc(prefix)} from </span>` : ''}${shown}${rest}${single ? `<span class="ml-2 truncate text-zinc-500">${esc(titleCase(single))}</span>` : ''}</span>${sub}</div>`;
 }
 
 const SMALL = new Set(['a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'from', 'in', 'into', 'of', 'on', 'or', 'the', 'to', 'with']);

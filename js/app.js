@@ -7,6 +7,8 @@ import { programCard, esc, titleCase } from './ui/render.js';
 import { initCourseCards, setCourseCardSchool, setTakenCodes } from './ui/coursecard.js';
 import { initCourseAutocomplete, setAutocompleteSchool } from './ui/autocomplete.js';
 import { initSchedule, render as renderSchedule, findSections, distributionSummary } from './ui/schedule.js';
+import { autoPlan, seasonPattern } from './engine/autoplan.js';
+import { courseDetails } from './data/courseinfo.js';
 
 const $ = (sel) => document.querySelector(sel);
 const PAGE = 15;
@@ -18,6 +20,7 @@ const state = {
   includePlanned: true,
   plan: [], // [{ term: 'Spring 2027', courses: [{ code, hours }] }]
   schedule: {}, // { [termCode]: [crn, ...] }
+  overrides: {}, // { [programId]: [{ key, code }] } advisor-approved substitutions
   scheduleTerm: '',
   editing: false,
   tab: localStorage.getItem('rf.tab') || (location.hash === '#planner' ? 'planner' : location.hash === '#schedule' ? 'schedule' : 'audit'),
@@ -32,14 +35,14 @@ let school = getSchool(localStorage.getItem('rf.school') || schools[0].id);
 // ---------- persistence ----------
 function save() {
   try {
-    localStorage.setItem(`rf.${school.id}`, JSON.stringify({ courses: state.courses, declared: state.declared, includeInProgress: state.includeInProgress, includePlanned: state.includePlanned, plan: state.plan, schedule: state.schedule, scheduleTerm: state.scheduleTerm }));
+    localStorage.setItem(`rf.${school.id}`, JSON.stringify({ courses: state.courses, declared: state.declared, includeInProgress: state.includeInProgress, includePlanned: state.includePlanned, plan: state.plan, schedule: state.schedule, scheduleTerm: state.scheduleTerm, overrides: state.overrides }));
     localStorage.setItem('rf.school', school.id);
   } catch { /* storage unavailable */ }
 }
 function load() {
   try {
     const d = JSON.parse(localStorage.getItem(`rf.${school.id}`) || 'null');
-    if (d) { state.courses = d.courses || []; state.declared = d.declared || []; state.includeInProgress = d.includeInProgress !== false; state.includePlanned = d.includePlanned !== false; state.plan = Array.isArray(d.plan) ? d.plan : []; state.schedule = d.schedule && typeof d.schedule === 'object' ? d.schedule : {}; state.scheduleTerm = d.scheduleTerm || ''; }
+    if (d) { state.courses = d.courses || []; state.declared = d.declared || []; state.includeInProgress = d.includeInProgress !== false; state.includePlanned = d.includePlanned !== false; state.plan = Array.isArray(d.plan) ? d.plan : []; state.schedule = d.schedule && typeof d.schedule === 'object' ? d.schedule : {}; state.scheduleTerm = d.scheduleTerm || ''; state.overrides = d.overrides && typeof d.overrides === 'object' ? d.overrides : {}; }
     state.expanded = new Set(state.declared);
   } catch { /* ignore */ }
 }
@@ -153,6 +156,7 @@ function restore(data, label) {
   state.declared = Array.isArray(data.declared) ? data.declared.filter((id) => school.programs.some((p) => p.id === id)) : [];
   state.plan = Array.isArray(data.plan) ? data.plan : [];
   state.schedule = data.schedule && typeof data.schedule === 'object' ? data.schedule : {};
+  state.overrides = data.overrides && typeof data.overrides === 'object' ? data.overrides : {};
   state.includeInProgress = data.includeInProgress !== false;
   state.includePlanned = data.includePlanned !== false;
   state.expanded = new Set(state.declared);
@@ -216,7 +220,7 @@ function initImport() {
 
   $('#print-btn').addEventListener('click', () => window.print());
   $('#export-btn').addEventListener('click', () => {
-    const payload = { app: 'DegreePlanner', version: 1, school: school.id, exported: new Date().toISOString(), courses: state.courses, declared: state.declared, plan: state.plan, schedule: state.schedule, includeInProgress: state.includeInProgress, includePlanned: state.includePlanned };
+    const payload = { app: 'DegreePlanner', version: 1, school: school.id, exported: new Date().toISOString(), courses: state.courses, declared: state.declared, plan: state.plan, schedule: state.schedule, overrides: state.overrides, includeInProgress: state.includeInProgress, includePlanned: state.includePlanned };
     const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = `degreeplanner-${school.id}-${new Date().toISOString().slice(0, 10)}.json`;
@@ -319,6 +323,7 @@ function renderTimeline() {
   $('#tab-summary').textContent = [`${state.courses.length} courses`, `${hrs % 1 ? hrs.toFixed(1) : hrs} hrs`, g ? `GPA ${g}` : '', planned ? `${planned} planned` : ''].filter(Boolean).join(' · ');
   $('#include-ip').checked = state.includeInProgress;
   $('#include-planned').checked = state.includePlanned;
+  $('#auto-clear').hidden = !state.plan.some((t) => t.courses.some((c) => c.auto));
   const edit = $('#edit-btn'); edit.textContent = state.editing ? 'Done editing' : 'Edit'; edit.setAttribute('aria-pressed', String(state.editing));
   edit.classList.toggle('btn-primary', state.editing);
   edit.classList.toggle('btn-ghost', !state.editing);
@@ -335,7 +340,7 @@ function renderTimeline() {
   const addForm = (cls, attrs) => `<form class="${cls} mt-0.5 flex gap-1" ${attrs} autocomplete="off"><input class="course-input field h-6 min-w-0 flex-1 px-1.5 font-mono text-[11px] uppercase placeholder:normal-case" placeholder="Add course" aria-label="Course code" required><button class="btn h-6 px-1.5 text-[11px]" type="submit">Add</button></form>`;
   const colWidth = state.editing ? 'w-[12.5rem] shrink-0' : 'min-w-[6.75rem] flex-1 basis-0';
   const col = (title, sub, body, cls, heavy = false) => `<div class="flex ${colWidth} flex-col rounded-md border ${cls}">
-      <div class="flex items-baseline justify-between gap-2 px-2 pt-1.5 pb-1"><span class="shrink-0 whitespace-nowrap text-xs font-medium">${title}</span><span class="min-w-0 truncate font-mono text-[11px] ${heavy ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500'}" ${heavy ? 'title="Over 20 hours: needs overload approval"' : 'title="Credit hours · term GPA"'}>${sub}</span></div>
+      <div class="flex items-baseline justify-between gap-2 px-2 pt-1.5 pb-1"><span class="shrink-0 whitespace-nowrap text-xs font-medium">${title}</span><span class="min-w-0 truncate font-mono text-[11px] ${heavy ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500'}" ${heavy ? `title="Over ${school.maxTermHours || 18} hours: needs overload approval"` : 'title="Credit hours · term GPA"'}>${sub}</span></div>
       <div class="flex flex-col px-1 pb-1">${body}</div></div>`;
 
   const pastCols = past.map(([term, items]) => {
@@ -344,14 +349,14 @@ function renderTimeline() {
     const tg = past.length + state.plan.length <= 7 ? gpa(items.map(({ c }) => c)) : null;
     const body = items.sort((a, b) => a.c.code.localeCompare(b.c.code)).map(({ c, i }) => chip(c, { index: i })).join('') +
       (state.editing ? addForm('add-course', `data-term="${esc(term === 'Transfer credit' || term === 'Other' ? '' : term)}" data-source="${term === 'Transfer credit' ? 'transfer' : 'manual'}"`) : '');
-    return col(esc(term), `${h % 1 ? h.toFixed(1) : h}h${ip ? '·IP' : tg && term !== 'Transfer credit' ? `<span class="hidden sm:inline">·${tg}</span>` : ''}`, body, 'border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40', h > 20);
+    return col(esc(term), `${h % 1 ? h.toFixed(1) : h}h${ip ? '·IP' : tg && term !== 'Transfer credit' ? `<span class="hidden sm:inline">·${tg}</span>` : ''}`, body, 'border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40', h > (school.maxTermHours || 18));
   });
 
   const planCols = state.plan.map((t, i) => ({ t, i })).sort((a, b) => termKey(a.t.term) - termKey(b.t.term)).map(({ t, i }) => {
     const h = t.courses.reduce((a, c) => a + hoursOf(c), 0);
-    const body = t.courses.map((c) => chip({ ...c, status: 'planned', title: school.catalog?.[c.code]?.title }, { planned: true, termIndex: i })).join('') + addForm('add-planned', `data-term="${i}"`);
+    const body = t.courses.map((c) => chip({ ...c, status: 'planned', title: `${titleCase(school.catalog?.[c.code]?.title || '')}${c.auto ? ' (auto-planned)' : ''}` }, { planned: true, termIndex: i })).join('') + addForm('add-planned', `data-term="${i}"`);
     const title = `${esc(t.term)}${state.editing ? ` <button type="button" class="btn-icon ml-0.5 size-5 rounded align-middle" data-f="remove-term" data-term="${i}" aria-label="Remove ${esc(t.term)}"><svg class="size-3"><use href="#i-x"/></svg></button>` : ''}`;
-    return col(title, `${h}h`, body, 'border-dashed border-sky-300 dark:border-sky-800', h > 20);
+    return col(title, `${h}h`, body, 'border-dashed border-sky-300 dark:border-sky-800', h > (school.maxTermHours || 18));
   });
 
   const d = nextTermDefault();
@@ -362,10 +367,60 @@ function renderTimeline() {
       <button class="btn h-7 px-2 text-xs" type="submit">Add</button></div>
     </form>`;
   $('#timeline').innerHTML = pastCols.join('') + planCols.join('') + addCol;
+  annotatePlannedSeasons();
   $('#term-season').value = d.season;
 }
 
+/** Mark planned courses whose term's season does not match when the course has historically run. */
+let annotateToken = 0;
+async function annotatePlannedSeasons() {
+  const token = ++annotateToken;
+  for (const el of document.querySelectorAll('#timeline [data-planned]')) {
+    const term = state.plan[Number(el.dataset.planned)]?.term || '';
+    const season = term.split(' ')[0];
+    if (season !== 'Fall' && season !== 'Spring') continue;
+    const details = await courseDetails(school, el.dataset.code);
+    if (token !== annotateToken) return;
+    const pat = seasonPattern(details, school.scheduleTerms);
+    if (pat[season] === false) {
+      el.classList.add('bg-amber-50', 'dark:bg-amber-950/40');
+      el.title = `${el.dataset.code} has been ${pat.label} recently, so it probably will not run in ${term}.`;
+      const ref = el.querySelector('.course-ref');
+      if (ref && !el.querySelector('[data-warn]')) ref.insertAdjacentHTML('afterend', `<span data-warn class="rounded bg-amber-100 px-1 font-mono text-[10px] font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-200">${pat.Fall ? 'fall' : pat.Spring ? 'spring' : 'n/a'}</span>`);
+    }
+  }
+}
+
+async function runAutoPlan() {
+  const programs = state.declared.map((id) => school.programs.find((p) => p.id === id)).filter(Boolean);
+  if (!programs.length) { setStatus('Choose your major on the Audit tab first, then Auto-plan can fill in what it requires.', 'error'); return; }
+  const btn = $('#auto-btn'); btn.disabled = true; btn.textContent = 'Planning…';
+  try {
+    const result = await autoPlan({ school, programs, courses: state.courses, plan: state.plan, hoursPerTerm: Number($('#auto-hours').value) || 16, loadDetails: (code) => courseDetails(school, code), overrides: state.overrides });
+    state.plan = result.plan;
+    const notes = [];
+    if (result.placed.length) {
+      const byTerm = new Map();
+      for (const p of result.placed) byTerm.set(p.term, [...(byTerm.get(p.term) || []), p.code]);
+      for (const [term, codes] of byTerm) notes.push(`${term}: ${codes.join(', ')}`);
+    }
+    const unknown = result.placed.filter((p) => p.unknownOffering).map((p) => p.code);
+    if (unknown.length) notes.push(`No offering history for ${unknown.join(', ')}; confirm when they run.`);
+    if (result.patterns.length) notes.push(`Still yours to choose: ${result.patterns.map((pt) => `${pt.count > 1 ? `${pt.count} × ` : ''}${pt.label} (${pt.program.replace(/\s*\(.*\)$/, '')})`).join('; ')}.`);
+    for (const u of result.unplaced.slice(0, 6)) notes.push(`Could not place ${u.code}: ${u.reason}.`);
+    setStatus(result.placed.length ? `Auto-planned ${result.placed.length} course${result.placed.length === 1 ? '' : 's'} by offering season and prerequisites.` : 'Nothing to add: your plan already covers every specific required course.', 'ok', notes);
+    clearTimeout(statusTimer); // keep the summary visible until the next action
+    save(); renderAll();
+  } finally { btn.disabled = false; btn.textContent = 'Auto-plan'; }
+}
+
 function initTimeline() {
+  $('#auto-btn').addEventListener('click', runAutoPlan);
+  $('#auto-clear').addEventListener('click', () => {
+    for (const t of state.plan) t.courses = t.courses.filter((c) => !c.auto);
+    state.plan = state.plan.filter((t) => t.courses.length);
+    setStatus('Removed auto-planned courses.', 'ok'); save(); renderAll();
+  });
   const tl = $('#timeline');
   tl.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -391,7 +446,7 @@ function initTimeline() {
       if (!from || !to) return;
       const course = from.courses.find((c) => c.code === pl.dataset.code);
       from.courses = from.courses.filter((c) => c !== course);
-      if (course?.fromSchedule) unscheduleCourse(from.term, course.code);
+      if (course) unscheduleCourse(from.term, course.code);
       if (course && !to.courses.some((c) => c.code === course.code)) to.courses.push({ ...course, fromSchedule: false });
       save(); renderAll(); return;
     }
@@ -404,7 +459,7 @@ function initTimeline() {
     if (btn.dataset.f === 'remove-term') { state.plan.splice(Number(btn.dataset.term), 1); save(); renderAll(); return; }
     if (btn.dataset.f !== 'remove') return;
     const pl = btn.closest('[data-planned]');
-    if (pl) { const t = state.plan[Number(pl.dataset.planned)]; const c0 = t.courses.find((c) => c.code === pl.dataset.code); t.courses = t.courses.filter((c) => c.code !== pl.dataset.code); if (c0?.fromSchedule) unscheduleCourse(t.term, c0.code); }
+    if (pl) { const t = state.plan[Number(pl.dataset.planned)]; const c0 = t.courses.find((c) => c.code === pl.dataset.code); t.courses = t.courses.filter((c) => c.code !== pl.dataset.code); if (c0) unscheduleCourse(t.term, c0.code); }
     else state.courses.splice(Number(btn.closest('[data-i]').dataset.i), 1);
     save(); renderAll();
   });
@@ -449,7 +504,7 @@ function renderResults() {
   renderDeclareSelect();
 
   const declaredPrograms = state.declared.map((id) => school.programs.find((p) => p.id === id)).filter(Boolean);
-  const declaredResults = declaredPrograms.map((p) => auditProgram(p, courses));
+  const declaredResults = declaredPrograms.map((p) => auditProgram(p, courses, state.overrides[p.id]));
   lastPrepared = courses; lastDeclaredResults = declaredResults;
   setTakenCodes(courses.flatMap((c) => c.aliases));
   renderOverview(courses, declaredResults);
@@ -460,7 +515,7 @@ function renderResults() {
 
   // Hide other degrees of a major you have already declared (BA vs BS of the same field cannot both be earned).
   const declaredMajorNames = new Set(declaredPrograms.filter((p) => p.kind === 'major').map((p) => p.name));
-  let results = auditAll(school.programs.filter((p) => !state.declared.includes(p.id) && !(p.kind === 'major' && declaredMajorNames.has(p.name))), courses);
+  let results = auditAll(school.programs.filter((p) => !state.declared.includes(p.id) && !(p.kind === 'major' && declaredMajorNames.has(p.name))), courses, state.overrides);
   if (state.kind !== 'all') results = results.filter((r) => r.program.kind === state.kind);
   if (state.query) {
     const q = state.query.toLowerCase();
@@ -545,6 +600,34 @@ function initResults() {
       if (act.dataset.action === 'undeclare') state.declared = state.declared.filter((x) => x !== id);
       save(); renderResults(); return;
     }
+    const ovAdd = e.target.closest('[data-ov-add]');
+    if (ovAdd) {
+      // Swap the button for a picker of the student's own courses that this program is not already using.
+      const prog = ovAdd.dataset.prog, key = ovAdd.dataset.ovAdd;
+      const result = lastDeclaredResults.find((r) => r.program.id === prog);
+      const usedKeys = new Set((result?.usedCourses || []).map((c) => c.key));
+      const options = lastPrepared.filter((c) => !usedKeys.has(c.key)).sort((a, b) => a.code.localeCompare(b.code));
+      const sel = document.createElement('select');
+      sel.className = 'field h-7 max-w-[15rem] px-1 text-xs';
+      sel.setAttribute('aria-label', 'Course to count here');
+      sel.innerHTML = `<option value="">Count which course?</option>${options.map((c) => `<option value="${esc(c.code)}">${esc(c.code)} · ${esc(titleCase(c.title || school.catalog?.[c.code]?.title || ''))}${c.status === 'planned' ? ' (planned)' : c.status === 'in-progress' ? ' (in progress)' : ''}</option>`).join('')}`;
+      sel.addEventListener('change', () => {
+        if (!sel.value) return;
+        state.overrides[prog] = [...(state.overrides[prog] || []), { key, code: sel.value }];
+        save(); renderAll();
+      });
+      sel.addEventListener('blur', () => { if (!sel.value) renderResults(); });
+      ovAdd.replaceWith(sel); sel.focus();
+      return;
+    }
+    const ovRemove = e.target.closest('[data-ov-remove]');
+    if (ovRemove) {
+      const prog = ovRemove.dataset.prog;
+      const list = state.overrides[prog] || [];
+      const i = list.findIndex((o) => o.key === ovRemove.dataset.ovRemove && o.code === ovRemove.dataset.code);
+      if (i >= 0) list.splice(i, 1);
+      save(); renderAll(); return;
+    }
     const more = e.target.closest('.more-opts');
     if (more) { more.replaceWith(document.createTextNode(', ' + more.dataset.more)); return; }
     const head = e.target.closest('.prog-head');
@@ -557,7 +640,7 @@ function initResults() {
 }
 
 function resetAll() {
-  state.courses = []; state.declared = []; state.plan = []; state.schedule = {}; state.expanded.clear(); state.editing = false;
+  state.courses = []; state.declared = []; state.plan = []; state.schedule = {}; state.overrides = {}; state.expanded.clear(); state.editing = false;
   state.tab = 'audit'; state.page = 1; state.query = ''; $('#search').value = '';
   $('#paste-text').value = ''; $('#paste-box').hidden = true; setStatus('');
   try { localStorage.removeItem(`rf.${school.id}`); localStorage.removeItem('rf.tab'); } catch { /* ignore */ }

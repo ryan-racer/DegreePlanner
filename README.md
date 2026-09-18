@@ -45,8 +45,10 @@ npm run watch     # rebuild on change while editing
 4. The explorer ranks all remaining programs by completion. Expand any card for a requirement-by-requirement breakdown.
 5. Plan ahead: add future terms and the courses you intend to take. Planned courses count in every audit (marked as planned), and the sidebar suggests the courses that would close the most open requirements in your declared programs.
 6. Hover or tap any course code for its description, prerequisites, credit hours, and which recent semesters it was offered.
-7. Export downloads a JSON backup of everything (courses, programs, plan, schedule). Drop it on the import screen on any device to restore.
-8. Schedule tab: pick sections for a term from real meeting times, see them on a weekly grid with conflicts flagged, and search for sections that fit your open slots and fill a requirement or a distribution group. Sections chosen for a future term land in the planner automatically, and "Add to calendar" exports them as an .ics file with weekly recurring events.
+7. Auto-plan (Planner tab) adds the specific courses your declared programs still require, placing each in the earliest term where it has historically been offered that season, its prerequisites are met, and the term stays under your hours cap (18 maximum). Planned courses sitting in a season they do not usually run are flagged.
+8. Substitute: on any open requirement of a declared program, count one of your own courses there. Use it for advisor-approved substitutions the catalog cannot know about; each is tagged "manual" and can be undone.
+9. Export downloads a JSON backup of everything (courses, programs, plan, schedule). Drop it on the import screen on any device to restore.
+10. Schedule tab: pick sections for a term from real meeting times, see them on a weekly grid with conflicts flagged, and search for sections that fit your open slots and fill a requirement or a distribution group. The Schedule and Planner stay in sync both ways for future terms: planned courses get a section picked for them (switchable), and removing either side removes the other, and "Add to calendar" exports them as an .ics file with weekly recurring events.
 
 Audits are estimates based on the current General Announcements. They do not model university-wide requirements (distribution, FWIS, LPAP, upper-level hours) or advisor-approved substitutions.
 
@@ -61,7 +63,8 @@ js/ui/render.js            audit cards → HTML
 js/ui/coursecard.js        hover card with course details and offering history
 js/ui/autocomplete.js      course code / title autocomplete for add-course inputs
 js/ui/schedule.js          semester schedule: weekly grid, section search, plan sync
-js/engine/audit.js         requirement evaluation engine
+js/engine/audit.js         requirement evaluation engine (incl. manual substitutions)
+js/engine/autoplan.js      auto-planner: offering seasons, prerequisites, hours cap
 js/engine/match.js         course-code normalisation and matching
 js/parser/transcript.js    transcript text → courses
 js/parser/pdf.js           PDF → text (pdf.js from CDN, loaded on demand)

@@ -28,11 +28,22 @@ export function prepareCourses(courses, school, opts = {}) {
  * Audit one program.
  * @returns {{ program, satisfied, remaining, total, pct, used: Course[], tree: ResultNode[] }}
  */
-export function auditProgram(program, courses) {
+export function auditProgram(program, courses, overrides = []) {
   const reserved = collectExactCodes(program.requirements);
   reserved.refs = countExactRefs(program.requirements);
   const used = new Set();
-  const tree = evalNodes(program.requirements, courses, used, reserved);
+  // Manual substitutions approved by an advisor: { key, code }. `key` is a node path ("0.1") for choose/hours nodes
+  // or "path#slot" for a slot of a course/all node. Claim those courses first so nothing else spends them.
+  const ov = new Map();
+  for (const o of overrides || []) {
+    const c = courses.find((x) => !used.has(x.key) && x.aliases.includes(o.code));
+    if (!c) continue;
+    used.add(c.key);
+    if (!ov.has(o.key)) ov.set(o.key, []);
+    ov.get(o.key).push(c);
+  }
+  reserved.ov = ov;
+  const tree = evalNodes(program.requirements, courses, used, reserved, '');
   const sum = summarize(tree);
   const usedCourses = courses.filter((c) => used.has(c.key));
   return {
@@ -48,9 +59,9 @@ export function auditProgram(program, courses) {
 }
 
 /** Audit every program in a school; sorted by closeness. */
-export function auditAll(programs, courses) {
+export function auditAll(programs, courses, overridesByProgram = {}) {
   return programs
-    .map((p) => auditProgram(p, courses))
+    .map((p) => auditProgram(p, courses, overridesByProgram[p.id]))
     .sort((a, b) => b.pct - a.pct || a.remaining - b.remaining || a.program.name.localeCompare(b.program.name));
 }
 
@@ -60,21 +71,21 @@ function summarize(nodes) {
   return { remaining, total };
 }
 
-function evalNodes(nodes, courses, used, reserved) {
-  return (nodes || []).map((n) => evalNode(n, courses, used, reserved));
+function evalNodes(nodes, courses, used, reserved, prefix) {
+  return (nodes || []).map((n, i) => evalNode(n, courses, used, reserved, prefix === '' ? String(i) : `${prefix}.${i}`));
 }
 
-function evalNode(node, courses, used, reserved) {
+function evalNode(node, courses, used, reserved, path) {
   switch (node.type) {
-    case 'course': return evalAll({ ...node, items: [node.options || []] }, courses, used, reserved, true);
-    case 'all': return evalAll(node, courses, used, reserved, false);
-    case 'choose': return evalChoose(node, courses, used, reserved);
-    case 'hours': return evalHours(node, courses, used, reserved);
-    case 'any': return evalAny(node, courses, used, reserved);
+    case 'course': return evalAll({ ...node, items: [node.options || []] }, courses, used, reserved, true, path, node);
+    case 'all': return evalAll(node, courses, used, reserved, false, path, node);
+    case 'choose': return evalChoose(node, courses, used, reserved, path);
+    case 'hours': return evalHours(node, courses, used, reserved, path);
+    case 'any': return evalAny(node, courses, used, reserved, path);
     case 'group': {
-      const children = evalNodes(node.requirements, courses, used, reserved);
+      const children = evalNodes(node.requirements, courses, used, reserved, path);
       const s = summarize(children);
-      return { node, kind: 'group', children, ...s, satisfied: s.remaining === 0 };
+      return { node, kind: 'group', path, children, ...s, satisfied: s.remaining === 0 };
     }
     default: return { node, kind: 'unknown', children: [], remaining: 0, total: 0, satisfied: true };
   }
@@ -100,15 +111,18 @@ function pickFor(specs, courses, used, reserved, allow) {
   return candidates[0];
 }
 
-function evalAll(node, courses, used, reserved, single) {
-  const slots = (node.items || []).map((slot) => {
+function evalAll(node, courses, used, reserved, single, path, original) {
+  const slots = (node.items || []).map((slot, i) => {
     const specs = Array.isArray(slot) ? slot : [slot];
+    const key = `${path}#${i}`;
+    const manual = reserved.ov?.get(key)?.[0];
+    if (manual) return { specs, course: manual, manual: true, key };
     const c = pickFor(specs, courses, used, reserved);
     if (c) used.add(c.key);
-    return { specs, course: c || null };
+    return { specs, course: c || null, key };
   });
   const remaining = slots.filter((s) => !s.course).length;
-  return { node, kind: single ? 'course' : 'all', slots, remaining, total: slots.length, satisfied: remaining === 0 };
+  return { node: original || node, kind: single ? 'course' : 'all', path, slots, remaining, total: slots.length, satisfied: remaining === 0 };
 }
 
 /**
@@ -121,10 +135,12 @@ function exclusiveFilter(node, filled) {
   return (c) => !groups.some((g) => c.aliases.some((a) => g.includes(a)) && filled.some((f) => f.aliases.some((a) => g.includes(a))));
 }
 
-function evalChoose(node, courses, used, reserved) {
+function evalChoose(node, courses, used, reserved, path) {
   const count = Math.max(0, node.count | 0);
   const filled = [];
   const missing = [];
+  const manual = new Set();
+  for (const c of (reserved.ov?.get(path) || []).slice(0, count)) { filled.push(c); manual.add(c.key); }
   const take = (c) => { used.add(c.key); filled.push(c); };
   // Sub-quotas first ("at least 2 must be CMOR courses"): only the deficit after courses already filled.
   for (const q of node.atLeast || []) {
@@ -145,13 +161,15 @@ function evalChoose(node, courses, used, reserved) {
   }
   const remaining = count - filled.length;
   while (missing.length < remaining) missing.push({ specs: node.from || [] });
-  return { node, kind: 'choose', filled, missing, remaining, total: count, satisfied: remaining === 0 };
+  return { node, kind: 'choose', path, filled, manual, missing, remaining, total: count, satisfied: remaining === 0 };
 }
 
-function evalHours(node, courses, used, reserved) {
+function evalHours(node, courses, used, reserved, path) {
   const need = Number(node.hours) || 0;
   const filled = [];
   let earned = 0;
+  const manual = new Set();
+  for (const c of reserved.ov?.get(path) || []) { filled.push(c); manual.add(c.key); earned += c.hours; }
   while (earned < need) {
     const c = pickFor(node.from || [], courses, used, reserved, exclusiveFilter(node, filled));
     if (!c) break;
@@ -161,17 +179,17 @@ function evalHours(node, courses, used, reserved) {
   }
   const total = Math.max(1, Math.ceil(need / DEFAULT_HOURS));
   const remaining = Math.max(0, Math.ceil((need - earned) / DEFAULT_HOURS));
-  return { node, kind: 'hours', filled, earned, need, remaining, total, satisfied: earned >= need };
+  return { node, kind: 'hours', path, filled, manual, earned, need, remaining, total, satisfied: earned >= need };
 }
 
-function evalAny(node, courses, used, reserved) {
+function evalAny(node, courses, used, reserved, path) {
   let best = null;
-  for (const opt of node.options || []) {
+  (node.options || []).forEach((opt, j) => {
     const trial = new Set(used);
-    const res = evalNode(opt, courses, trial, reserved);
+    const res = evalNode(opt, courses, trial, reserved, `${path}.o${j}`);
     const pct = res.total ? (res.total - res.remaining) / res.total : 1;
     if (!best || pct > best.pct || (pct === best.pct && res.remaining < best.res.remaining)) best = { res, trial, pct };
-  }
+  });
   if (!best) return { node, kind: 'any', children: [], chosen: null, remaining: 0, total: 0, satisfied: true };
   for (const k of best.trial) used.add(k);
   const others = (node.options || []).filter((o) => o !== best.res.node).map((o) => ({ node: o }));

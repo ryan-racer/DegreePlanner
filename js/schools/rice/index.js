@@ -12,6 +12,7 @@ export default {
   catalogYear: '2026–2027',
   catalogUrl: 'https://ga.rice.edu/',
   defaultHours: 3,
+  maxTermHours: 18, // most a student can take in a term without an overload approval
   // Hints for the transcript parser (see js/parser/transcript.js for defaults).
   transcript: {
     inProgress: /\b(COURSES?\s+IN\s+PROGRESS|IN[- ]PROGRESS)\b/i,

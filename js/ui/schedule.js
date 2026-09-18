@@ -79,29 +79,66 @@ function currentTerm() {
 function selectedCrns() { const t = currentTerm(); return (ctx.state.schedule && ctx.state.schedule[t]) || []; }
 async function setSelected(crns) {
   const t = currentTerm();
-  ctx.state.schedule = ctx.state.schedule || {};
-  ctx.state.schedule[t] = crns;
-  await syncPlan(t);
-  ctx.save(); render();
+  if (!crns.length) for (const crn of selectedCrns()) { const code = await codeOf(crn); if (code) planEdit(t, code, false); }
+  commit(crns);
 }
 function isTranscriptTerm(term) { const name = termName(term); return ctx.state.courses.some((c) => c.term === name); }
-/** Keep the planner term for a future semester in step with the sections chosen here. */
-async function syncPlan(term) {
+/** Add or remove one course in the planner term that matches this schedule term (future terms only). */
+function planEdit(term, code, add) {
   if (isTranscriptTerm(term)) return;
   const name = termName(term);
-  const sections = await loadSections(term);
-  const codes = [...new Set(selectedCrns().map((crn) => sections.find((s) => s.crn === crn)?.code).filter(Boolean))];
   let t = ctx.state.plan.find((x) => x.term === name);
-  if (!t) { if (!codes.length) return; t = { term: name, courses: [] }; ctx.state.plan.push(t); }
-  const fromSchedule = new Set(t.courses.filter((c) => c.fromSchedule).map((c) => c.code));
-  t.courses = t.courses.filter((c) => !c.fromSchedule || codes.includes(c.code));
-  for (const code of codes) if (!t.courses.some((c) => c.code === code)) t.courses.push({ code, hours: ctx.school.catalog?.[code]?.hours, fromSchedule: true });
-  if (!t.courses.length) ctx.state.plan = ctx.state.plan.filter((x) => x !== t);
-  ctx.rerender();
+  if (add) {
+    if (!t) { t = { term: name, courses: [] }; ctx.state.plan.push(t); }
+    if (!t.courses.some((c) => c.code === code)) t.courses.push({ code, hours: ctx.school.catalog?.[code]?.hours, fromSchedule: true });
+  } else if (t) {
+    t.courses = t.courses.filter((c) => c.code !== code);
+    if (!t.courses.length) ctx.state.plan = ctx.state.plan.filter((x) => x !== t);
+  }
 }
-async function addSection(crn) { if (!selectedCrns().includes(crn)) setSelected([...selectedCrns(), crn]); }
-async function removeSection(crn) { setSelected(selectedCrns().filter((c) => c !== crn)); }
-async function swapSection(oldCrn, newCrn) { setSelected(selectedCrns().map((c) => (c === oldCrn ? newCrn : c))); }
+async function codeOf(crn) { return (await loadSections(currentTerm())).find((s) => s.crn === crn)?.code; }
+async function addSection(crn) {
+  if (selectedCrns().includes(crn)) return;
+  const code = await codeOf(crn); if (code) planEdit(currentTerm(), code, true);
+  commit([...selectedCrns(), crn]);
+}
+async function removeSection(crn) {
+  const code = await codeOf(crn); if (code) planEdit(currentTerm(), code, false);
+  commit(selectedCrns().filter((c) => c !== crn));
+}
+async function swapSection(oldCrn, newCrn) { commit(selectedCrns().map((c) => (c === oldCrn ? newCrn : c))); }
+function commit(crns) {
+  const t = currentTerm();
+  ctx.state.schedule = ctx.state.schedule || {};
+  ctx.state.schedule[t] = crns;
+  ctx.save(); ctx.rerender(); render();
+}
+
+/**
+ * For a future term the planner is the source of truth: every planned course gets a section (the first timed one
+ * that does not clash), and sections whose course left the plan are dropped. Returns planned codes with no sections.
+ */
+function reconcileWithPlan(term, sections) {
+  if (isTranscriptTerm(term)) return [];
+  const planTerm = ctx.state.plan.find((x) => x.term === termName(term));
+  const codes = planTerm ? planTerm.courses.map((c) => c.code) : [];
+  const byCrn = new Map(sections.map((s) => [s.crn, s]));
+  const before = selectedCrns();
+  let sel = before.filter((crn) => codes.includes(byCrn.get(crn)?.code));
+  const missing = [];
+  for (const code of codes) {
+    if (sel.some((crn) => byCrn.get(crn)?.code === code)) continue;
+    const options = sections.filter((s) => s.code === code && s.meetings.length);
+    if (!options.length) { missing.push(code); continue; }
+    const chosen = sel.map((crn) => byCrn.get(crn));
+    const pick = options.find((o) => !chosen.some((x) => conflicts(o, x))) || options[0];
+    sel = [...sel, pick.crn];
+  }
+  if (sel.length !== before.length || sel.some((c, i) => c !== before[i])) {
+    ctx.state.schedule = ctx.state.schedule || {}; ctx.state.schedule[term] = sel; ctx.save();
+  }
+  return missing;
+}
 
 // ---------- time helpers ----------
 const fmt = (m) => { const h = Math.floor(m / 60), mi = m % 60; const ap = h >= 12 ? 'p' : 'a'; return `${((h + 11) % 12) + 1}:${String(mi).padStart(2, '0')}${ap}`; };
@@ -175,6 +212,8 @@ export async function render() {
     ctx.state.schedule = ctx.state.schedule || {}; ctx.state.schedule[term] = guesses; ctx.save();
     $('#sched-note').textContent = guesses.length ? 'Sections were guessed from your in-progress courses. Switch any section from the list on the right.' : '';
   }
+  const notOffered = reconcileWithPlan(term, sections);
+  if (!isTranscriptTerm(term)) $('#sched-note').textContent = notOffered.length ? `In your plan for ${termName(term)} but with no scheduled sections: ${notOffered.join(', ')}.` : '';
   const selected = selectedCrns().map((crn) => byCrn.get(crn)).filter(Boolean);
   const dd = defaultTermDates(term);
   const icsStart = $('#ics-start'), icsEnd = $('#ics-end');
@@ -212,8 +251,8 @@ function renderGrid(selected) {
 function renderSelected(selected, sections) {
   const $ = ctx.$;
   const credits = selected.reduce((a, s) => a + s.credits, 0);
-  $('#sched-stats').textContent = selected.length ? `${selected.length} section${selected.length === 1 ? '' : 's'} · ${credits} credit hours${credits > 20 ? ' · over 20, needs overload approval' : ''}` : 'Nothing scheduled yet';
-  $('#sched-stats').classList.toggle('text-amber-700', credits > 20); $('#sched-stats').classList.toggle('dark:text-amber-400', credits > 20);
+  $('#sched-stats').textContent = selected.length ? `${selected.length} section${selected.length === 1 ? '' : 's'} · ${credits} credit hours${credits > (ctx.school.maxTermHours || 18) ? ` · over ${ctx.school.maxTermHours || 18}, needs overload approval` : ''}` : 'Nothing scheduled yet';
+  const over = credits > (ctx.school.maxTermHours || 18); $('#sched-stats').classList.toggle('text-amber-700', over); $('#sched-stats').classList.toggle('dark:text-amber-400', over);
   $('#sched-selected').innerHTML = selected.map((s) => {
     const alts = sections.filter((x) => x.code === s.code && x.meetings.length);
     const swap = alts.length > 1 ? `<select data-f="swap" data-crn="${s.crn}" class="field h-6 px-1 text-[11px]" aria-label="Section">${alts.map((x) => `<option value="${x.crn}" ${x.crn === s.crn ? 'selected' : ''}>${esc(x.sec)} · ${esc(meetingText(x))}</option>`).join('')}</select>` : `<span class="font-mono text-[11px] text-zinc-500">${esc(s.sec)} · ${esc(meetingText(s))}</span>`;
