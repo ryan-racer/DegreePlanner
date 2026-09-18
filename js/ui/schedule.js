@@ -282,8 +282,11 @@ async function renderCandidates() {
   const codeQ = ui.query.replace(/^([a-z]+)\s?(\d)/, '$1 $2');
   const prefix = (x) => (ui.query && x.s.code.toLowerCase().startsWith(codeQ) ? 1 : 0);
   list.sort((a, b) => (prefix(b) - prefix(a)) || (b.tags.length - a.tags.length) || (b.dn - a.dn) || a.s.code.localeCompare(b.s.code) || a.s.sec.localeCompare(b.s.sec));
-  const shown = list.slice(0, 60);
+  let shown = list.slice(0, 60);
   const deptData = Object.assign({}, ...(await Promise.all([...new Set(shown.map((x) => x.s.code.split(' ')[0]))].map(loadDept))));
+  // Within the shown page, sink sections whose prerequisites are clearly unmet.
+  const unmet = (x) => prereqStatus(deptData[x.s.code]?.pre, takenCodes).met === false;
+  shown = [...shown.filter((x) => !unmet(x)), ...shown.filter(unmet)];
   const prereqTag = (code) => {
     const st = prereqStatus(deptData[code]?.pre, takenCodes);
     if (st.met === false) return `<span class="rounded bg-red-50 px-1 text-red-700 dark:bg-red-950 dark:text-red-300" title="${esc(deptData[code].pre)}">prereqs not met</span>`;
