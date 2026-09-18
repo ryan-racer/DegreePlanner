@@ -265,13 +265,13 @@ function chip(c, { index, planned, termIndex }) {
   const editing = state.editing || planned;
   const h = hoursOf(c);
   return `<div class="flex h-6 items-center gap-1.5 rounded px-1 text-xs ${c.status === 'failed' ? 'opacity-50' : ''} hover:bg-zinc-100 dark:hover:bg-zinc-800/70" ${planned ? `data-planned="${termIndex}" data-code="${esc(c.code)}"` : `data-i="${index}"`} title="${esc(title)}">
-    <span class="course-ref min-w-0 flex-1 cursor-help truncate font-mono text-[12px] ${planned ? 'text-sky-700 dark:text-sky-300' : ''}" data-course="${esc(c.code)}" tabindex="0">${esc(c.code)}<span class="ml-1 font-sans text-[11px] text-zinc-500">${h % 1 ? h.toFixed(1) : h}</span></span>
-    ${editing && !planned ? `<select data-f="status" class="field h-5 w-[4.2rem] px-1 text-[10px]" aria-label="Status">
+    <span class="course-ref min-w-0 flex-1 cursor-help truncate font-mono text-[12px] ${planned ? 'text-sky-700 dark:text-sky-300' : ''}" data-course="${esc(c.code)}" tabindex="0">${esc(c.code)}${editing && !planned ? '' : `<span class="ml-1 font-sans text-[11px] text-zinc-500">${h % 1 ? h.toFixed(1) : h}</span>`}</span>
+    ${editing && !planned ? `<select data-f="status" class="field h-5 w-14 px-1 text-[10px]" aria-label="Status" title="Done, in progress, or excluded from audits">
         <option value="completed" ${c.status === 'completed' ? 'selected' : ''}>Done</option>
-        <option value="in-progress" ${c.status === 'in-progress' ? 'selected' : ''}>In prog.</option>
-        <option value="failed" ${c.status === 'failed' ? 'selected' : ''}>Exclude</option></select>`
+        <option value="in-progress" ${c.status === 'in-progress' ? 'selected' : ''}>IP</option>
+        <option value="failed" ${c.status === 'failed' ? 'selected' : ''}>Skip</option></select>`
       : badge ? `<span class="rounded px-1 font-mono text-[11px] font-medium leading-4 ${gradeClass(c)}">${esc(badge)}</span>` : ''}
-    ${editing ? `<button type="button" class="btn-icon size-4 rounded" data-f="remove" aria-label="Remove ${esc(c.code)}"><svg class="size-3"><use href="#i-x"/></svg></button>` : ''}
+    ${editing ? `<button type="button" class="btn-icon -my-1 size-6 rounded" data-f="remove" aria-label="Remove ${esc(c.code)}"><svg class="size-3"><use href="#i-x"/></svg></button>` : ''}
   </div>`;
 }
 
@@ -312,7 +312,7 @@ function renderTimeline() {
   const planCols = state.plan.map((t, i) => ({ t, i })).sort((a, b) => termKey(a.t.term) - termKey(b.t.term)).map(({ t, i }) => {
     const h = t.courses.reduce((a, c) => a + hoursOf(c), 0);
     const body = t.courses.map((c) => chip({ ...c, status: 'planned', title: school.catalog?.[c.code]?.title }, { planned: true, termIndex: i })).join('') + addForm('add-planned', `data-term="${i}"`);
-    const title = `${esc(t.term)}${state.editing ? ` <button type="button" class="btn-icon ml-0.5 size-4 rounded align-middle" data-f="remove-term" data-term="${i}" aria-label="Remove ${esc(t.term)}"><svg class="size-3"><use href="#i-x"/></svg></button>` : ''}`;
+    const title = `${esc(t.term)}${state.editing ? ` <button type="button" class="btn-icon ml-0.5 size-5 rounded align-middle" data-f="remove-term" data-term="${i}" aria-label="Remove ${esc(t.term)}"><svg class="size-3"><use href="#i-x"/></svg></button>` : ''}`;
     return col(title, `${h} hr`, body, 'border-dashed border-sky-300 dark:border-sky-800', h > 20);
   });
 
@@ -323,7 +323,10 @@ function renderTimeline() {
       <div class="flex gap-1"><input id="term-year" class="field h-7 min-w-0 flex-1 px-1.5 text-xs" type="number" min="2000" max="2100" value="${d.year}" aria-label="Year" required>
       <button class="btn h-7 px-2 text-xs" type="submit">Add</button></div>
     </form>`;
-  $('#timeline').innerHTML = pastCols.join('') + planCols.join('') + addCol;
+  const tl = $('#timeline');
+  tl.classList.toggle('grid-cols-[repeat(auto-fill,minmax(9rem,1fr))]', !state.editing);
+  tl.classList.toggle('grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))]', state.editing);
+  tl.innerHTML = pastCols.join('') + planCols.join('') + addCol;
   $('#term-season').value = d.season;
 }
 
