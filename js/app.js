@@ -6,8 +6,8 @@ import { normalizeCode } from './engine/match.js';
 import { programCard, esc, titleCase } from './ui/render.js';
 import { initCourseCards, setCourseCardSchool, setTakenCodes } from './ui/coursecard.js';
 import { initCourseAutocomplete, setAutocompleteSchool } from './ui/autocomplete.js';
-import { initSchedule, render as renderSchedule, findSections, distributionSummary } from './ui/schedule.js';
-import { autoPlan, seasonPattern } from './engine/autoplan.js';
+import { initSchedule, render as renderSchedule, findSections, distributionSummary, loadSections } from './ui/schedule.js';
+import { autoPlan, seasonPattern, inferGraduation, upcomingTerms } from './engine/autoplan.js';
 import { courseDetails } from './data/courseinfo.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -21,6 +21,8 @@ const state = {
   plan: [], // [{ term: 'Spring 2027', courses: [{ code, hours }] }]
   schedule: {}, // { [termCode]: [crn, ...] }
   overrides: {}, // { [programId]: [{ key, code }] } advisor-approved substitutions
+  scheduleHidden: {}, // { [termCode]: [code] } transcript courses hidden from that term's schedule
+  autoTarget: '',
   scheduleTerm: '',
   editing: false,
   tab: localStorage.getItem('rf.tab') || (location.hash === '#planner' ? 'planner' : location.hash === '#schedule' ? 'schedule' : 'audit'),
@@ -35,14 +37,14 @@ let school = getSchool(localStorage.getItem('rf.school') || schools[0].id);
 // ---------- persistence ----------
 function save() {
   try {
-    localStorage.setItem(`rf.${school.id}`, JSON.stringify({ courses: state.courses, declared: state.declared, includeInProgress: state.includeInProgress, includePlanned: state.includePlanned, plan: state.plan, schedule: state.schedule, scheduleTerm: state.scheduleTerm, overrides: state.overrides }));
+    localStorage.setItem(`rf.${school.id}`, JSON.stringify({ courses: state.courses, declared: state.declared, includeInProgress: state.includeInProgress, includePlanned: state.includePlanned, plan: state.plan, schedule: state.schedule, scheduleTerm: state.scheduleTerm, overrides: state.overrides, scheduleHidden: state.scheduleHidden, autoTarget: state.autoTarget }));
     localStorage.setItem('rf.school', school.id);
   } catch { /* storage unavailable */ }
 }
 function load() {
   try {
     const d = JSON.parse(localStorage.getItem(`rf.${school.id}`) || 'null');
-    if (d) { state.courses = d.courses || []; state.declared = d.declared || []; state.includeInProgress = d.includeInProgress !== false; state.includePlanned = d.includePlanned !== false; state.plan = Array.isArray(d.plan) ? d.plan : []; state.schedule = d.schedule && typeof d.schedule === 'object' ? d.schedule : {}; state.scheduleTerm = d.scheduleTerm || ''; state.overrides = d.overrides && typeof d.overrides === 'object' ? d.overrides : {}; }
+    if (d) { state.courses = d.courses || []; state.declared = d.declared || []; state.includeInProgress = d.includeInProgress !== false; state.includePlanned = d.includePlanned !== false; state.plan = Array.isArray(d.plan) ? d.plan : []; state.schedule = d.schedule && typeof d.schedule === 'object' ? d.schedule : {}; state.scheduleTerm = d.scheduleTerm || ''; state.overrides = d.overrides && typeof d.overrides === 'object' ? d.overrides : {}; state.scheduleHidden = d.scheduleHidden && typeof d.scheduleHidden === 'object' ? d.scheduleHidden : {}; state.autoTarget = d.autoTarget || ''; }
     state.expanded = new Set(state.declared);
   } catch { /* ignore */ }
 }
@@ -292,18 +294,23 @@ function addPlanned(termIndex, code, hours) {
   save(); renderAll();
 }
 function plannedCourses() {
-  return state.plan.flatMap((t) => t.courses.map((c) => ({ code: c.code, hours: c.hours, title: school.catalog?.[c.code]?.title || '', grade: '', status: 'planned', term: t.term, source: 'plan' })));
+  return state.plan.flatMap((t) => t.courses.filter((c) => c.code).map((c) => ({ code: c.code, hours: c.hours, title: school.catalog?.[c.code]?.title || '', grade: '', status: 'planned', term: t.term, source: 'plan' })));
 }
 function prepared() {
   return prepareCourses([...state.courses, ...plannedCourses()], school, { includeInProgress: state.includeInProgress, includePlanned: state.includePlanned });
 }
 
-function chip(c, { index, planned, termIndex }) {
-  const title = titleCase(c.title || school.catalog?.[c.code]?.title || '');
+function chip(c, { index, planned, termIndex, idx }) {
+  if (planned && !c.code) {
+    return `<div class="flex h-6 items-center gap-1.5 rounded px-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800/70" data-planned="${termIndex}" data-idx="${idx}" data-code="" title="${esc(c.why || 'Placeholder for a course you choose')}">
+      <span class="min-w-0 flex-1 truncate italic text-sky-700/80 dark:text-sky-300/80">${esc(c.label || 'Elective')}<span class="ml-1 not-italic text-[11px] text-zinc-500">${hoursOf(c)}</span></span>
+      <button type="button" class="btn-icon -my-1 size-6 rounded" data-f="remove" aria-label="Remove ${esc(c.label || 'placeholder')}"><svg class="size-3"><use href="#i-x"/></svg></button></div>`;
+  }
+  const title = c.why ? `${titleCase(c.title || school.catalog?.[c.code]?.title || '')} — ${c.why}` : titleCase(c.title || school.catalog?.[c.code]?.title || '');
   const badge = planned ? '' : c.status === 'in-progress' ? 'IP' : c.grade || (c.source === 'transfer' ? 'TR' : '');
   const editing = state.editing || planned;
   const h = hoursOf(c);
-  return `<div class="flex h-6 items-center gap-1.5 rounded px-1 text-xs ${c.status === 'failed' ? 'opacity-50' : ''} hover:bg-zinc-100 dark:hover:bg-zinc-800/70" ${planned ? `data-planned="${termIndex}" data-code="${esc(c.code)}"` : `data-i="${index}"`} title="${esc(title)}">
+  return `<div class="flex h-6 items-center gap-1.5 rounded px-1 text-xs ${c.status === 'failed' ? 'opacity-50' : ''} hover:bg-zinc-100 dark:hover:bg-zinc-800/70" ${planned ? `data-planned="${termIndex}" data-idx="${idx}" data-code="${esc(c.code)}"` : `data-i="${index}"`} title="${esc(title)}">
     <span class="course-ref min-w-0 flex-1 cursor-help truncate font-mono text-[12px] ${planned ? 'text-sky-700 dark:text-sky-300' : ''}" data-course="${esc(c.code)}" tabindex="0">${esc(c.code)}${editing && !planned ? '' : `<span class="ml-1 font-sans text-[11px] text-zinc-500">${h % 1 ? h.toFixed(1) : h}</span>`}</span>
     ${editing && !planned ? `<select data-f="status" class="field h-5 w-14 px-1 text-[10px]" aria-label="Status" title="Done, in progress, or excluded from audits">
         <option value="completed" ${c.status === 'completed' ? 'selected' : ''}>Done</option>
@@ -324,6 +331,10 @@ function renderTimeline() {
   $('#include-ip').checked = state.includeInProgress;
   $('#include-planned').checked = state.includePlanned;
   $('#auto-clear').hidden = !state.plan.some((t) => t.courses.some((c) => c.auto));
+  const latestTerm = state.courses.map((c) => c.term).filter(Boolean).sort((a, b) => termKey(b) - termKey(a))[0];
+  const targets = upcomingTerms(latestTerm, 10), inferred = inferGraduation(state.courses);
+  const chosen = targets.includes(state.autoTarget) ? state.autoTarget : inferred;
+  $('#auto-target').innerHTML = targets.map((t) => `<option value="${esc(t)}" ${t === chosen ? 'selected' : ''}>Finish by ${esc(t)}</option>`).join('');
   const edit = $('#edit-btn'); edit.textContent = state.editing ? 'Done editing' : 'Edit'; edit.setAttribute('aria-pressed', String(state.editing));
   edit.classList.toggle('btn-primary', state.editing);
   edit.classList.toggle('btn-ghost', !state.editing);
@@ -344,17 +355,19 @@ function renderTimeline() {
       <div class="flex flex-col px-1 pb-1">${body}</div></div>`;
 
   const pastCols = past.map(([term, items]) => {
-    const h = items.filter(({ c }) => c.status !== 'failed').reduce((a, { c }) => a + hoursOf(c), 0);
+    const h = items.filter(({ c }) => c.status !== 'failed').reduce((a, { c }) => a + hoursOf(c), 0) + (state.plan.find((t) => t.term === term)?.courses || []).reduce((a, c) => a + hoursOf(c), 0);
     const ip = items.every(({ c }) => c.status === 'in-progress');
     const tg = past.length + state.plan.length <= 7 ? gpa(items.map(({ c }) => c)) : null;
-    const body = items.sort((a, b) => a.c.code.localeCompare(b.c.code)).map(({ c, i }) => chip(c, { index: i })).join('') +
+    const pIdx = state.plan.findIndex((t) => t.term === term);
+    const plannedHere = pIdx >= 0 ? state.plan[pIdx].courses.map((c, k) => chip({ ...c, status: 'planned', title: school.catalog?.[c.code]?.title }, { planned: true, termIndex: pIdx, idx: k })).join('') : '';
+    const body = items.sort((a, b) => a.c.code.localeCompare(b.c.code)).map(({ c, i }) => chip(c, { index: i })).join('') + plannedHere +
       (state.editing ? addForm('add-course', `data-term="${esc(term === 'Transfer credit' || term === 'Other' ? '' : term)}" data-source="${term === 'Transfer credit' ? 'transfer' : 'manual'}"`) : '');
     return col(esc(term), `${h % 1 ? h.toFixed(1) : h}h${ip ? '·IP' : tg && term !== 'Transfer credit' ? `<span class="hidden sm:inline">·${tg}</span>` : ''}`, body, 'border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/40', h > (school.maxTermHours || 18));
   });
 
-  const planCols = state.plan.map((t, i) => ({ t, i })).sort((a, b) => termKey(a.t.term) - termKey(b.t.term)).map(({ t, i }) => {
+  const planCols = state.plan.map((t, i) => ({ t, i })).filter(({ t }) => !groups.has(t.term)).sort((a, b) => termKey(a.t.term) - termKey(b.t.term)).map(({ t, i }) => {
     const h = t.courses.reduce((a, c) => a + hoursOf(c), 0);
-    const body = t.courses.map((c) => chip({ ...c, status: 'planned', title: `${titleCase(school.catalog?.[c.code]?.title || '')}${c.auto ? ' (auto-planned)' : ''}` }, { planned: true, termIndex: i })).join('') + addForm('add-planned', `data-term="${i}"`);
+    const body = t.courses.map((c, k) => chip({ ...c, status: 'planned', title: school.catalog?.[c.code]?.title }, { planned: true, termIndex: i, idx: k })).join('') + addForm('add-planned', `data-term="${i}"`);
     const title = `${esc(t.term)}${state.editing ? ` <button type="button" class="btn-icon ml-0.5 size-5 rounded align-middle" data-f="remove-term" data-term="${i}" aria-label="Remove ${esc(t.term)}"><svg class="size-3"><use href="#i-x"/></svg></button>` : ''}`;
     return col(title, `${h}h`, body, 'border-dashed border-sky-300 dark:border-sky-800', h > (school.maxTermHours || 18));
   });
@@ -378,7 +391,7 @@ async function annotatePlannedSeasons() {
   for (const el of document.querySelectorAll('#timeline [data-planned]')) {
     const term = state.plan[Number(el.dataset.planned)]?.term || '';
     const season = term.split(' ')[0];
-    if (season !== 'Fall' && season !== 'Spring') continue;
+    if ((season !== 'Fall' && season !== 'Spring') || !el.dataset.code) continue;
     const details = await courseDetails(school, el.dataset.code);
     if (token !== annotateToken) return;
     const pat = seasonPattern(details, school.scheduleTerms);
@@ -396,26 +409,40 @@ async function runAutoPlan() {
   if (!programs.length) { setStatus('Choose your major on the Audit tab first, then Auto-plan can fill in what it requires.', 'error'); return; }
   const btn = $('#auto-btn'); btn.disabled = true; btn.textContent = 'Planning…';
   try {
-    const result = await autoPlan({ school, programs, courses: state.courses, plan: state.plan, hoursPerTerm: Number($('#auto-hours').value) || 16, loadDetails: (code) => courseDetails(school, code), overrides: state.overrides });
-    state.plan = result.plan;
+    // Distribution needs are measured against everything except earlier auto-planned courses, which get rebuilt.
+    const keep = state.plan.flatMap((t) => t.courses.filter((c) => c.code && !c.auto).map((c) => ({ code: c.code, hours: c.hours, status: 'planned', term: t.term })));
+    const dist = await distributionSummary(prepareCourses([...state.courses, ...keep], school, {}), school);
+    const result = await autoPlan({
+      school, programs, courses: state.courses, plan: state.plan, overrides: state.overrides,
+      hoursPerTerm: Number($('#auto-hours').value) || 16, graduateBy: $('#auto-target').value,
+      distNeed: dist ? dist.need : {}, loadDetails: (code) => courseDetails(school, code), loadSections,
+    });
+    state.plan = result.plan; state.autoTarget = $('#auto-target').value;
     const notes = [];
-    if (result.placed.length) {
-      const byTerm = new Map();
-      for (const p of result.placed) byTerm.set(p.term, [...(byTerm.get(p.term) || []), p.code]);
-      for (const [term, codes] of byTerm) notes.push(`${term}: ${codes.join(', ')}`);
+    for (const t of result.plan) {
+      const auto = t.courses.filter((c) => c.auto); if (!auto.length) continue;
+      const hrs = t.courses.reduce((a, c) => a + hoursOf(c), 0);
+      notes.push(`${t.term} (${hrs} hrs): ${auto.map((c) => c.code || c.label).join(', ')}`);
     }
+    const prereqs = result.placed.filter((p) => p.prereqFor).map((p) => `${p.code} (for ${p.prereqFor})`);
+    if (prereqs.length) notes.push(`Added prerequisites: ${prereqs.join(', ')}.`);
     const unknown = result.placed.filter((p) => p.unknownOffering).map((p) => p.code);
     if (unknown.length) notes.push(`No offering history for ${unknown.join(', ')}; confirm when they run.`);
-    if (result.patterns.length) notes.push(`Still yours to choose: ${result.patterns.map((pt) => `${pt.count > 1 ? `${pt.count} × ` : ''}${pt.label} (${pt.program.replace(/\s*\(.*\)$/, '')})`).join('; ')}.`);
+    if (result.placeholders.length) notes.push(`${result.placeholders.length} placeholder${result.placeholders.length === 1 ? '' : 's'} mark courses only you can choose (electives, distribution). Hover any planned course for the reasoning.`);
     for (const u of result.unplaced.slice(0, 6)) notes.push(`Could not place ${u.code}: ${u.reason}.`);
-    setStatus(result.placed.length ? `Auto-planned ${result.placed.length} course${result.placed.length === 1 ? '' : 's'} by offering season and prerequisites.` : 'Nothing to add: your plan already covers every specific required course.', 'ok', notes);
-    clearTimeout(statusTimer); // keep the summary visible until the next action
+    if (result.beyondTarget) notes.push(`This runs past your target of ${result.target}; raise the hours cap or pick a later term.`);
+    const gap = Math.ceil(result.degreeHours - result.totalHours);
+    notes.push(gap > 0 ? `Reaches ${Math.floor(result.totalHours)} of ${result.degreeHours} degree hours: about ${gap} more hours of free electives needed.` : `Reaches ${Math.floor(result.totalHours)} of ${result.degreeHours} degree hours.`);
+    const n = result.placed.length;
+    setStatus(n || result.placeholders.length ? `Auto-planned ${n} course${n === 1 ? '' : 's'} through ${result.lastTerm}, balanced at about ${result.softLoad} hrs per term.` : 'Nothing to add: your plan already covers every requirement.', 'ok', notes);
+    clearTimeout(statusTimer);
     save(); renderAll();
   } finally { btn.disabled = false; btn.textContent = 'Auto-plan'; }
 }
 
 function initTimeline() {
   $('#auto-btn').addEventListener('click', runAutoPlan);
+  $('#auto-target').addEventListener('change', (e) => { state.autoTarget = e.target.value; save(); });
   $('#auto-clear').addEventListener('click', () => {
     for (const t of state.plan) t.courses = t.courses.filter((c) => !c.auto);
     state.plan = state.plan.filter((t) => t.courses.length);
@@ -444,10 +471,10 @@ function initTimeline() {
     if (e.target.dataset.f === 'move') {
       const pl = e.target.closest('[data-planned]'); const from = state.plan[Number(pl.dataset.planned)]; const to = state.plan[Number(e.target.value)];
       if (!from || !to) return;
-      const course = from.courses.find((c) => c.code === pl.dataset.code);
+      const course = from.courses[Number(pl.dataset.idx)];
       from.courses = from.courses.filter((c) => c !== course);
-      if (course) unscheduleCourse(from.term, course.code);
-      if (course && !to.courses.some((c) => c.code === course.code)) to.courses.push({ ...course, fromSchedule: false });
+      if (course?.code) unscheduleCourse(from.term, course.code);
+      if (course && (!course.code || !to.courses.some((c) => c.code === course.code))) to.courses.push({ ...course, fromSchedule: false });
       save(); renderAll(); return;
     }
     if (e.target.dataset.f !== 'status') return;
@@ -459,7 +486,7 @@ function initTimeline() {
     if (btn.dataset.f === 'remove-term') { state.plan.splice(Number(btn.dataset.term), 1); save(); renderAll(); return; }
     if (btn.dataset.f !== 'remove') return;
     const pl = btn.closest('[data-planned]');
-    if (pl) { const t = state.plan[Number(pl.dataset.planned)]; const c0 = t.courses.find((c) => c.code === pl.dataset.code); t.courses = t.courses.filter((c) => c.code !== pl.dataset.code); if (c0) unscheduleCourse(t.term, c0.code); }
+    if (pl) { const t = state.plan[Number(pl.dataset.planned)]; const c0 = t.courses[Number(pl.dataset.idx)]; t.courses = t.courses.filter((c) => c !== c0); if (c0?.code) unscheduleCourse(t.term, c0.code); if (!t.courses.length) state.plan = state.plan.filter((x) => x !== t); }
     else state.courses.splice(Number(btn.closest('[data-i]').dataset.i), 1);
     save(); renderAll();
   });

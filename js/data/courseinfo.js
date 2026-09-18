@@ -50,3 +50,37 @@ function evaluate(src) {
   if (i < src.length) throw new Error('trailing');
   return v;
 }
+
+/**
+ * Which courses would have to be added to satisfy a prerequisite sentence? Picks the cheapest branch of each "or".
+ * Returns [] when already satisfied or when the sentence names no courses.
+ */
+export function prereqNeeds(text, takenCodes) {
+  if (!text) return [];
+  const tokens = [];
+  const re = /\b([A-Z]{2,5}) (\d{3}[A-Z]?)\b|\band\b|\bor\b|[()]/gi;
+  let m;
+  while ((m = re.exec(text))) {
+    if (m[1]) tokens.push({ code: `${m[1].toUpperCase()} ${m[2].toUpperCase()}` });
+    else tokens.push({ op: m[0].toLowerCase() });
+  }
+  if (!tokens.some((t) => t.code)) return [];
+  let i = 0;
+  const primary = () => {
+    const t = tokens[i];
+    if (!t) return null;
+    if (t.op === '(') { i++; const v = orExpr(); if (tokens[i]?.op === ')') i++; return v; }
+    if (t.code) { i++; return { code: t.code }; }
+    i++; return primary();
+  };
+  const andExpr = () => { const kids = []; let k = primary(); if (k) kids.push(k); while (i < tokens.length && tokens[i].op !== 'or' && tokens[i].op !== ')') { if (tokens[i].op === 'and') i++; k = primary(); if (k) kids.push(k); } return { and: kids }; };
+  const orExpr = () => { const kids = [andExpr()]; while (tokens[i]?.op === 'or') { i++; kids.push(andExpr()); } return { or: kids }; };
+  const need = (n) => {
+    if (!n) return [];
+    if (n.code) return takenCodes.has(n.code) ? [] : [n.code];
+    if (n.and) return [...new Set(n.and.flatMap(need))];
+    const options = n.or.map(need);
+    return options.reduce((best, o) => (o.length < best.length ? o : best), options[0] || []);
+  };
+  try { return need(orExpr()); } catch { return []; }
+}

@@ -85,8 +85,15 @@ async function setSelected(crns) {
 function isTranscriptTerm(term) { const name = termName(term); return ctx.state.courses.some((c) => c.term === name); }
 /** Add or remove one course in the planner term that matches this schedule term (future terms only). */
 function planEdit(term, code, add) {
-  if (isTranscriptTerm(term)) return;
   const name = termName(term);
+  if (ctx.state.courses.some((c) => c.term === name && c.code === code)) {
+    // A course already on the transcript for this term: hide or unhide it here rather than touching the plan.
+    ctx.state.scheduleHidden = ctx.state.scheduleHidden || {};
+    const hidden = new Set(ctx.state.scheduleHidden[term] || []);
+    if (add) hidden.delete(code); else hidden.add(code);
+    ctx.state.scheduleHidden[term] = [...hidden];
+    return;
+  }
   let t = ctx.state.plan.find((x) => x.term === name);
   if (add) {
     if (!t) { t = { term: name, courses: [] }; ctx.state.plan.push(t); }
@@ -119,9 +126,11 @@ function commit(crns) {
  * that does not clash), and sections whose course left the plan are dropped. Returns planned codes with no sections.
  */
 function reconcileWithPlan(term, sections) {
-  if (isTranscriptTerm(term)) return [];
-  const planTerm = ctx.state.plan.find((x) => x.term === termName(term));
-  const codes = planTerm ? planTerm.courses.map((c) => c.code) : [];
+  const name = termName(term);
+  const planTerm = ctx.state.plan.find((x) => x.term === name);
+  const hidden = new Set(ctx.state.scheduleHidden?.[term] || []);
+  const onTranscript = ctx.state.courses.filter((c) => c.term === name && c.status !== 'failed' && !hidden.has(c.code)).map((c) => c.code);
+  const codes = [...new Set([...onTranscript, ...(planTerm ? planTerm.courses.filter((c) => c.code).map((c) => c.code) : [])])];
   const byCrn = new Map(sections.map((s) => [s.crn, s]));
   const before = selectedCrns();
   let sel = before.filter((crn) => codes.includes(byCrn.get(crn)?.code));
@@ -204,16 +213,8 @@ export async function render() {
   if (ctx.state.scheduleTerm !== term) return;
   const byCrn = new Map(sections.map((s) => [s.crn, s]));
 
-  // First visit to a term that is in progress on the transcript: guess sections from the in-progress courses.
-  if (!ctx.state.schedule?.[term] && isTranscriptTerm(term)) {
-    const name = termName(term);
-    const guesses = ctx.state.courses.filter((c) => c.term === name && c.status !== 'failed')
-      .map((c) => sections.find((s) => s.code === c.code && s.meetings.length) || sections.find((s) => s.code === c.code)).filter(Boolean).map((s) => s.crn);
-    ctx.state.schedule = ctx.state.schedule || {}; ctx.state.schedule[term] = guesses; ctx.save();
-    $('#sched-note').textContent = guesses.length ? 'Sections were guessed from your in-progress courses. Switch any section from the list on the right.' : '';
-  }
   const notOffered = reconcileWithPlan(term, sections);
-  if (!isTranscriptTerm(term)) $('#sched-note').textContent = notOffered.length ? `In your plan for ${termName(term)} but with no scheduled sections: ${notOffered.join(', ')}.` : '';
+  $('#sched-note').textContent = notOffered.length ? `On your plan for ${termName(term)} but with no timed sections: ${notOffered.join(', ')}.` : '';
   const selected = selectedCrns().map((crn) => byCrn.get(crn)).filter(Boolean);
   const dd = defaultTermDates(term);
   const icsStart = $('#ics-start'), icsEnd = $('#ics-end');

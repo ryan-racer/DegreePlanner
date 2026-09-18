@@ -167,6 +167,7 @@
           <input type="checkbox" id="include-ip" class="hidden" checked>
           <label class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400"><input type="checkbox" id="include-planned" class="size-4 accent-zinc-900 dark:accent-zinc-100" checked> Planned counts</label>
           <div class="flex items-center gap-1">
+            <select id="auto-target" class="field h-7 px-1.5 text-xs" aria-label="Graduation target for auto-plan" title="Finish by this term"></select>
             <select id="auto-hours" class="field h-7 px-1.5 text-xs" aria-label="Maximum credit hours per term for auto-plan" title="Maximum credit hours per term"><option value="12">12 hrs/term</option><option value="15">15 hrs/term</option><option value="16" selected>16 hrs/term</option><option value="18">18 hrs/term (max)</option></select>
             <button id="auto-btn" class="btn btn-sm" type="button" title="Add the courses your programs still require, placed by when they are offered and their prerequisites">Auto-plan</button>
             <button id="auto-clear" class="btn btn-ghost btn-sm text-zinc-500" type="button" hidden>Clear auto-plan</button>
