@@ -3,9 +3,9 @@
 
 import { esc, titleCase } from './render.js';
 import { loadSections, latestSectionTerm } from './schedule.js';
+import { courseDetails, clearCourseInfoCache, prereqStatus } from '../data/courseinfo.js';
 
-const cache = new Map(); // dept -> Promise<object>
-let card, current, hideTimer, school;
+let card, current, hideTimer, school, takenCodes = new Set();
 
 export function initCourseCards(activeSchool) {
   school = activeSchool;
@@ -30,7 +30,9 @@ export function initCourseCards(activeSchool) {
   window.addEventListener('scroll', () => { if (current) position(current); }, { passive: true });
 }
 
-export function setCourseCardSchool(s) { school = s; cache.clear(); hide(); }
+export function setCourseCardSchool(s) { school = s; clearCourseInfoCache(); hide(); }
+/** Codes (with cross-list aliases) the student has taken, is taking, or plans; used to check prerequisites. */
+export function setTakenCodes(codes) { takenCodes = new Set(codes); }
 
 function scheduleHide() { clearTimeout(hideTimer); hideTimer = setTimeout(hide, 120); }
 function hide() { card.classList.add('hidden'); current = null; }
@@ -52,14 +54,7 @@ async function show(el) {
   position(el);
 }
 
-function loadDetails(code) {
-  const dept = code.split(' ')[0];
-  if (!cache.has(dept)) {
-    const url = `${school.courseDataPath || ''}${dept}.json`;
-    cache.set(dept, fetch(url).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
-  }
-  return cache.get(dept).then((d) => d[code] || null);
-}
+function loadDetails(code) { return courseDetails(school, code); }
 
 function position(el) {
   const r = el.getBoundingClientRect();
@@ -110,7 +105,7 @@ function body(code, info, d, loading, sec) {
     ${title ? `<div class="mt-0.5 font-medium leading-snug">${esc(title)}</div>` : ''}
     ${loading ? '<div class="mt-2 text-xs text-zinc-400">Loading details…</div>' : ''}
     ${desc ? `<p class="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-400">${esc(desc)}</p>` : (!loading && !d ? '<p class="mt-2 text-xs text-zinc-400">No catalog entry for this course.</p>' : '')}
-    ${d?.pre ? `<p class="mt-2 text-[11px] leading-4 text-zinc-500"><span class="font-medium text-zinc-600 dark:text-zinc-400">Prerequisites</span> ${esc(d.pre)}</p>` : ''}
+    ${d?.pre ? prereqHtml(d.pre) : ''}
     ${off ? `<div class="mt-2.5 border-t border-zinc-200 pt-2 dark:border-zinc-800">
       <div class="text-[11px] text-zinc-600 dark:text-zinc-400">${esc(off.line)}</div>
       ${off.chips.length ? `<div class="mt-1.5 flex flex-wrap gap-1">${off.chips.map((c) => `<span class="rounded px-1.5 py-px font-mono text-[10px] ${c.on ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-zinc-100 text-zinc-400 line-through dark:bg-zinc-800 dark:text-zinc-500'}">${esc(c.name)}</span>`).join('')}</div>` : ''}

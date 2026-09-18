@@ -4,7 +4,7 @@ import { pdfToText } from './parser/pdf.js';
 import { prepareCourses, auditProgram, auditAll, suggestCourses } from './engine/audit.js';
 import { normalizeCode } from './engine/match.js';
 import { programCard, esc, titleCase } from './ui/render.js';
-import { initCourseCards, setCourseCardSchool } from './ui/coursecard.js';
+import { initCourseCards, setCourseCardSchool, setTakenCodes } from './ui/coursecard.js';
 import { initCourseAutocomplete, setAutocompleteSchool } from './ui/autocomplete.js';
 import { initSchedule, render as renderSchedule, findSections, distributionSummary } from './ui/schedule.js';
 
@@ -404,6 +404,7 @@ function renderResults() {
   const declaredPrograms = state.declared.map((id) => school.programs.find((p) => p.id === id)).filter(Boolean);
   const declaredResults = declaredPrograms.map((p) => auditProgram(p, courses));
   lastPrepared = courses; lastDeclaredResults = declaredResults;
+  setTakenCodes(courses.flatMap((c) => c.aliases));
   renderOverview(courses, declaredResults);
   $('#declared-audits').innerHTML = declaredResults.length
     ? declaredResults.map((r) => programCard(r, { expanded: state.expanded.has(r.program.id), declared: true, school, variant: 'card' })).join('')

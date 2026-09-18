@@ -5,9 +5,9 @@ import { esc, titleCase } from './render.js';
 import { termName } from './coursecard.js';
 import { suggestCourses } from '../engine/audit.js';
 import { courseMatchesSpec, aliasesFor } from '../engine/match.js';
+import { loadDept as loadDeptShared, prereqStatus } from '../data/courseinfo.js';
 
 const sectionCache = new Map(); // term -> Promise<Section[]>
-const deptCache = new Map();    // dept -> Promise<object>
 const DAY_ORDER = ['M', 'T', 'W', 'R', 'F', 'S', 'U'];
 const DAY_NAME = { M: 'Mon', T: 'Tue', W: 'Wed', R: 'Thu', F: 'Fri', S: 'Sat', U: 'Sun' };
 const PALETTE = [
@@ -65,10 +65,7 @@ export function loadSections(term) {
   }
   return sectionCache.get(term);
 }
-function loadDept(dept) {
-  if (!deptCache.has(dept)) deptCache.set(dept, fetch(`${ctx.school.courseDataPath}${dept}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
-  return deptCache.get(dept);
-}
+function loadDept(dept) { return loadDeptShared(ctx.school, dept); }
 
 // ---------- state helpers ----------
 function currentTerm() {
@@ -167,7 +164,8 @@ function renderGrid(selected) {
 function renderSelected(selected, sections) {
   const $ = ctx.$;
   const credits = selected.reduce((a, s) => a + s.credits, 0);
-  $('#sched-stats').textContent = selected.length ? `${selected.length} section${selected.length === 1 ? '' : 's'} · ${credits} credit hours` : 'Nothing scheduled yet';
+  $('#sched-stats').textContent = selected.length ? `${selected.length} section${selected.length === 1 ? '' : 's'} · ${credits} credit hours${credits > 20 ? ' · over 20, needs overload approval' : ''}` : 'Nothing scheduled yet';
+  $('#sched-stats').classList.toggle('text-amber-700', credits > 20); $('#sched-stats').classList.toggle('dark:text-amber-400', credits > 20);
   $('#sched-selected').innerHTML = selected.map((s) => {
     const alts = sections.filter((x) => x.code === s.code && x.meetings.length);
     const swap = alts.length > 1 ? `<select data-f="swap" data-crn="${s.crn}" class="field h-6 px-1 text-[11px]" aria-label="Section">${alts.map((x) => `<option value="${x.crn}" ${x.crn === s.crn ? 'selected' : ''}>${esc(x.sec)} · ${esc(meetingText(x))}</option>`).join('')}</select>` : `<span class="font-mono text-[11px] text-zinc-500">${esc(s.sec)} · ${esc(meetingText(s))}</span>`;
@@ -177,7 +175,7 @@ function renderSelected(selected, sections) {
       ${swap}
       <span class="shrink-0 font-mono text-[11px] text-zinc-500">${s.credits} hr</span>
       <button type="button" class="btn-icon size-6 rounded" data-f="remove" data-crn="${s.crn}" aria-label="Remove ${esc(s.code)}"><svg class="size-3.5"><use href="#i-x"/></svg></button></div>`;
-  }).join('') || '<p class="py-2 text-xs text-zinc-500">Add sections from the list on the left, or search for a course.</p>';
+  }).join('') || '<p class="py-2 text-xs text-zinc-500">Add sections from the list, or search for a course.</p>';
 }
 
 /** Which distribution groups still need courses, from everything taken, in progress, or planned. */
@@ -235,14 +233,23 @@ async function renderCandidates() {
   const distNeed = (s) => (dist && s.dist && dist.need[s.dist] > 0 ? 1 : 0);
   const scored = list.map((s) => ({ s, tags: why(s), dn: distNeed(s) }));
   list = ui.needed ? scored.filter((x) => x.tags.length || x.dn) : scored;
-  list.sort((a, b) => (b.tags.length - a.tags.length) || (b.dn - a.dn) || a.s.code.localeCompare(b.s.code) || a.s.sec.localeCompare(b.s.sec));
+  const codeQ = ui.query.replace(/^([a-z]+)\s?(\d)/, '$1 $2');
+  const prefix = (x) => (ui.query && x.s.code.toLowerCase().startsWith(codeQ) ? 1 : 0);
+  list.sort((a, b) => (prefix(b) - prefix(a)) || (b.tags.length - a.tags.length) || (b.dn - a.dn) || a.s.code.localeCompare(b.s.code) || a.s.sec.localeCompare(b.s.sec));
   const shown = list.slice(0, 60);
+  const deptData = Object.assign({}, ...(await Promise.all([...new Set(shown.map((x) => x.s.code.split(' ')[0]))].map(loadDept))));
+  const prereqTag = (code) => {
+    const st = prereqStatus(deptData[code]?.pre, takenCodes);
+    if (st.met === false) return `<span class="rounded bg-red-50 px-1 text-red-700 dark:bg-red-950 dark:text-red-300" title="${esc(deptData[code].pre)}">prereqs not met</span>`;
+    if (st.met === null && st.codes.length) return `<span class="rounded bg-zinc-100 px-1 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300" title="${esc(deptData[code].pre)}">check prereqs</span>`;
+    return '';
+  };
   $('#sched-count').textContent = `${list.length} section${list.length === 1 ? '' : 's'}${list.length > 60 ? ', showing 60' : ''}`;
   $('#sched-candidates').innerHTML = shown.map(({ s, tags }) => `<div class="flex items-start gap-2 border-b border-zinc-100 py-1.5 text-xs last:border-0 dark:border-zinc-800/70">
       <button type="button" class="btn-icon mt-0.5 size-6 shrink-0 rounded" data-f="add" data-crn="${s.crn}" aria-label="Add ${esc(s.code)} ${esc(s.sec)}"><svg class="size-3.5"><use href="#i-plus"/></svg></button>
       <div class="min-w-0 flex-1">
         <div class="flex items-baseline gap-1.5"><span class="course-ref cursor-help font-mono text-[12px] font-medium" data-course="${esc(s.code)}" tabindex="0">${esc(s.code)}</span><span class="font-mono text-[10px] text-zinc-400">${esc(s.sec)}</span><span class="min-w-0 truncate text-zinc-600 dark:text-zinc-400">${esc(titleCase(s.title))}</span></div>
         <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500"><span class="font-mono">${esc(meetingText(s))}</span><span>${s.credits} hr</span>${s.dist ? `<span class="${dist && dist.need[s.dist] > 0 ? 'rounded bg-amber-50 px-1 font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300' : ''}" title="${dist && dist.need[s.dist] > 0 ? 'You still need courses in this distribution group' : 'Distribution group'}">D${s.dist === 'I' ? 1 : s.dist === 'II' ? 2 : 3}${dist && dist.need[s.dist] > 0 ? ' needed' : ''}</span>` : ''}${s.instr ? `<span class="truncate">${esc(s.instr.split(' ').slice(0, 2).join(' '))}</span>` : ''}
-          ${tags.map((t) => `<span class="rounded px-1 ${t.kind === 'req' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}">${esc(t.text)}</span>`).join('')}</div>
+          ${tags.map((t) => `<span class="rounded px-1 ${t.kind === 'req' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}">${esc(t.text)}</span>`).join('')}${prereqTag(s.code)}</div>
       </div></div>`).join('') || '<p class="py-3 text-xs text-zinc-500">No sections match. Loosen a filter or clear the search.</p>';
 }
