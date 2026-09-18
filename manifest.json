@@ -1,0 +1,12 @@
+{
+  "name": "DegreePlanner",
+  "short_name": "DegreePlanner",
+  "description": "Audit your degree, plan future terms, and build a semester schedule.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#18181b",
+  "icons": [
+    { "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2318181b'/%3E%3Cpath d='M20 44V20h9a12 12 0 0 1 0 24H20' stroke='white' stroke-width='5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

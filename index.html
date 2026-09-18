@@ -10,6 +10,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-title" content="DegreePlanner">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body class="flex min-h-full flex-col font-sans">
@@ -86,9 +90,9 @@
   <div id="workspace" class="space-y-6" hidden>
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800">
       <nav class="-mb-px flex gap-6" role="tablist" aria-label="Sections">
-        <button type="button" role="tab" data-tab="audit" class="tab-btn" aria-selected="true">Audit</button>
-        <button type="button" role="tab" data-tab="planner" class="tab-btn" aria-selected="false">Planner <span id="tab-planner-count" class="ml-1 rounded-full bg-zinc-100 px-1.5 font-mono text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300" hidden></span></button>
-        <button type="button" role="tab" data-tab="schedule" class="tab-btn" aria-selected="false">Schedule</button>
+        <button type="button" role="tab" id="tab-audit" data-tab="audit" class="tab-btn" aria-selected="true" aria-controls="panel-audit">Audit</button>
+        <button type="button" role="tab" id="tab-planner" data-tab="planner" class="tab-btn" aria-selected="false" aria-controls="panel-planner">Planner <span id="tab-planner-count" class="ml-1 rounded-full bg-zinc-100 px-1.5 font-mono text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300" hidden></span></button>
+        <button type="button" role="tab" id="tab-schedule" data-tab="schedule" class="tab-btn" aria-selected="false" aria-controls="panel-schedule">Schedule</button>
       </nav>
       <div class="flex items-center gap-3 pb-2">
         <p id="tab-summary" class="text-xs text-zinc-500"></p>
@@ -98,7 +102,7 @@
       </div>
     </div>
 
-    <section data-panel="schedule" hidden>
+    <section data-panel="schedule" id="panel-schedule" role="tabpanel" aria-labelledby="tab-schedule" hidden>
       <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 class="text-lg font-semibold tracking-tight">Semester schedule</h2>
@@ -153,7 +157,7 @@
       </div>
     </section>
 
-    <section class="panel" data-panel="planner">
+    <section class="panel" data-panel="planner" id="panel-planner" role="tabpanel" aria-labelledby="tab-planner">
       <div class="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <div>
           <h2 class="text-sm font-semibold">Timeline</h2>
@@ -180,7 +184,7 @@
       </div>
     </section>
 
-    <div class="space-y-8" data-panel="audit">
+    <div class="space-y-8" data-panel="audit" id="panel-audit" role="tabpanel" aria-labelledby="tab-audit">
     <section id="overview" class="panel px-4 py-3"></section>
     <section>
       <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
