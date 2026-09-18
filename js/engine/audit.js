@@ -210,6 +210,15 @@ export function suggestCourses(results, courses, school, limit = 12) {
     for (const ch of n.children || []) walk(ch, program);
   };
   for (const r of results) for (const n of r.tree) walk(n, `${r.program.name} (${r.program.degree})`);
+  // Collapse cross-listed duplicates (COMP 460 / ARTS 460) onto the listing from the department that dominates
+  // the open requirements, so a CS audit suggests COMP 460 rather than ARTS 460.
+  const deptFreq = {};
+  for (const code of score.keys()) { const d = code.split(' ')[0]; deptFreq[d] = (deptFreq[d] || 0) + 1; }
+  const seen = new Set();
+  for (const code of [...score.keys()].sort((a, b) => (deptFreq[b.split(' ')[0]] - deptFreq[a.split(' ')[0]]) || a.localeCompare(b))) {
+    if (seen.has(code)) { score.delete(code); continue; }
+    for (const alias of school.crosslist?.[code] || []) { seen.add(alias); if (score.has(alias)) { const a = score.get(alias); const e = score.get(code); e.score = Math.max(e.score, a.score); a.programs.forEach((pr) => e.programs.add(pr)); score.delete(alias); } }
+  }
   const suggestions = [...score.entries()]
     .map(([code, e]) => ({ code, score: e.score, programs: [...e.programs], title: school.catalog?.[code]?.title || '', hours: school.catalog?.[code]?.hours }))
     .sort((a, b) => b.score - a.score || a.code.localeCompare(b.code))
