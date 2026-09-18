@@ -113,3 +113,10 @@ function body(code, info, d, loading, sec) {
     ${d?.x ? `<div class="mt-1.5 text-[11px] text-zinc-500">Cross-listed: ${esc(d.x)}</div>` : ''}
     ${sec ? `<div class="mt-2 flex items-center justify-between gap-2 border-t border-zinc-200 pt-2 text-[11px] dark:border-zinc-800"><span class="text-zinc-600 dark:text-zinc-400">${esc(termName(sec.term))}: ${sec.count ? `${sec.count} section${sec.count === 1 ? '' : 's'} with set times` : 'no scheduled sections'}</span>${sec.count ? `<button type="button" class="font-medium text-blue-700 hover:underline dark:text-blue-400" data-find-sections="${esc(code)}">Find sections →</button>` : ''}</div>` : ''}`;
 }
+
+function prereqHtml(text) {
+  const st = prereqStatus(text, takenCodes);
+  const verdict = st.met === true ? '<span class="text-emerald-600 dark:text-emerald-400">met</span>' : st.met === false ? '<span class="text-red-600 dark:text-red-400">not met yet</span>' : st.codes.length ? '<span class="text-amber-600 dark:text-amber-400">check</span>' : '';
+  const marked = esc(text).replace(/\b([A-Z]{2,5}) (\d{3}[A-Z]?)\b/g, (m, d, n) => { const ok = takenCodes.has(`${d} ${n}`); return `<span class="font-mono ${ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}">${m}${ok ? ' ✓' : ''}</span>`; });
+  return `<p class="mt-2 text-[11px] leading-4 text-zinc-500"><span class="font-medium text-zinc-600 dark:text-zinc-400">Prerequisites</span> ${verdict ? `(${verdict})` : ''} ${marked}</p>`;
+}
