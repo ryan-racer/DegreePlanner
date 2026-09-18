@@ -16,6 +16,8 @@ python3 serve.py 8080
 ```
 
 Then open <http://localhost:8080/>. Add `--lan` to let other devices on your network connect via your machine's IP address.
+On a Mac, `tools/install-launchd.sh` installs a user agent that keeps the LAN server running across logins and
+terminal sessions (`tools/install-launchd.sh --remove` uninstalls it).
 Deploy the folder as-is to GitHub Pages, Netlify, Cloudflare Pages, etc.
 
 ## Offline
