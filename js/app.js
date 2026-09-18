@@ -340,7 +340,13 @@ function renderYearSelect() {
   sel.innerHTML = years.map((y) => `<option value="${esc(y)}" ${y === active ? 'selected' : ''}>${esc(y.replace('-', '–'))} catalog${y === inferred ? (inferredExact ? ' (your first year)' : ' (closest to your first year)') : ''}</option>`).join('');
 }
 
-function renderAll() { renderYearSelect(); renderTimeline(); renderResults(); renderTabs(); if (state.courses.length && state.tab === 'schedule') renderSchedule(); }
+/** The footer names the catalog actually in use, which differs from the current one once a transcript sets the year. */
+function renderFooter() {
+  const y = state.courses.length ? activeYear() : '';
+  $('#foot-school').textContent = `${school.name}${y ? ` · ${y.replace('-', '–')} catalog` : school.catalogYear ? ` · ${school.catalogYear} catalog` : ''}`;
+}
+
+function renderAll() { renderYearSelect(); renderFooter(); renderTimeline(); renderResults(); renderTabs(); if (state.courses.length && state.tab === 'schedule') renderSchedule(); }
 
 // ---------- offline ----------
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
