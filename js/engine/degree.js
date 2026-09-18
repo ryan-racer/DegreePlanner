@@ -38,7 +38,8 @@ export async function auditDegree({ school, courses, programs = [], loadDetails 
   const info = new Map();
   await Promise.all([...new Set(courses.map((c) => c.code))].map(async (code) => info.set(code, await loadDetails(code))));
   const matches = (c, specs) => (specs || []).some((s) => courseMatchesSpec(c, s));
-  const notes = [];
+  const notes = []; // { about: 'hours' | 'dist:<group>' | 'gpa', text }
+  const note = (about, text) => notes.push({ about, text });
   const list = (cs) => [...new Set(cs.map((c) => c.code))];
   const isUpper = (c) => courseLevel(c.code) >= (cfg.upperLevel || 300);
   // A course must carry a minimum number of hours to meet a general education requirement. Transfer credit is
@@ -62,8 +63,8 @@ export async function auditDegree({ school, courses, programs = [], loadDetails 
     if (!isTransfer(c)) { inResidence += h; if (isUpper(c)) upperInResidence += h; }
   }
   const again = list(repeated);
-  if (again.length) notes.push(`${again.join(', ')} ${plural(again.length, 'appears', 'appear')} more than once. A repeated course earns credit once unless it is repeatable for credit.`);
-  for (const cap of over) notes.push(`Only ${cap.max} hours of ${cap.label} count toward the degree.`);
+  if (again.length) note('hours', `${again.join(', ')} ${plural(again.length, 'appears', 'appear')} more than once. A repeated course earns credit once unless it is repeatable for credit.`);
+  for (const cap of over) note('hours', `Only ${cap.max} hours of ${cap.label} count toward the degree.`);
   const round = (n) => Math.round(n * 1000) / 1000;
   const needHours = Math.max(cfg.hours || 120, ...programs.map((p) => p.degreeHours || 0));
 
@@ -78,7 +79,7 @@ export async function auditDegree({ school, courses, programs = [], loadDetails 
       const inGroup = courses.filter((c) => distGroupOf(info.get(c.code)) === g && !(d.excludeDepts || []).includes(deptOf(c.code)));
       const pool = inGroup.filter((c) => bigEnough(c, d));
       const small = list(inGroup.filter((c) => !bigEnough(c, d)));
-      if (small.length) notes.push(`${small.join(', ')} ${plural(small.length, 'is a', 'are')} Group ${g} ${plural(small.length, 'course')} but ${plural(small.length, 'carries', 'carry')} too few hours to count toward distribution (${d.minHours} required, ${cfg.transferMinHours ?? d.minHours} for transfer credit).`);
+      if (small.length) note(`dist:${g}`, `${small.join(', ')} ${plural(small.length, 'is a', 'are')} Group ${g} ${plural(small.length, 'course')} but ${plural(small.length, 'carries', 'carry')} too few hours to count toward distribution (${d.minHours} required, ${cfg.transferMinHours ?? d.minHours} for transfer credit).`);
       const depts = new Set(pool.map((c) => deptOf(c.code)));
       const countOk = pool.length >= d.courses, deptOk = depts.size >= Math.min(d.minDepartments || 1, d.courses);
       // Courses still needed: the count shortfall, or one more from another department when the count is met.
@@ -93,7 +94,7 @@ export async function auditDegree({ school, courses, programs = [], loadDetails 
   // Hours in residence only differ from total hours for students with transfer credit.
   const residency = cfg.residency && courses.some(isTransfer) ? { hours: tally(inResidence, cfg.residency.hours), upper: tally(upperInResidence, cfg.residency.upperLevelHours) } : null;
   const gpa = gpaOf(courses.filter((c) => !isTransfer(c)));
-  if (cfg.minGpa && gpa != null && gpa < cfg.minGpa) notes.push(`Cumulative GPA is ${gpa.toFixed(2)}; graduation requires at least ${cfg.minGpa.toFixed(2)}.`);
+  if (cfg.minGpa && gpa != null && gpa < cfg.minGpa) note('gpa', `Cumulative GPA is ${gpa.toFixed(2)}; graduation requires at least ${cfg.minGpa.toFixed(2)}.`);
 
   return {
     residency, gpa, notes,

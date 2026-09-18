@@ -47,7 +47,7 @@ test('transferred courses need 2.5 hours to count toward distribution; courses t
   assert.equal(ok.dist.I.satisfied, true, 'quarter-system courses convert to 2.668 hours and still count');
   const small = await mk([tr('HIST 101', 2.001), { code: 'HIST 102', hours: 2.668, status: 'completed' }]);
   assert.equal(small.dist.I.have, 0, 'a 2-hour transfer course does not count, and neither does a local course under 3 hours');
-  assert.equal(small.notes.length, 1, 'the audit says why');
+  assert.deepEqual(small.notes.map((n) => n.about), ['dist:I'], 'the audit says why, attached to the group');
 });
 
 test('residency, repeats, unarticulated transfer credit, and GPA', async () => {
@@ -65,8 +65,8 @@ test('residency, repeats, unarticulated transfer credit, and GPA', async () => {
   assert.equal(d.residency.hours.have, 5);
   assert.equal(d.residency.upper.have, 5);
   assert.equal(d.upper.have, 8);
-  assert.ok(d.gpa < 1.67 && d.notes.some((n) => n.includes('GPA')), 'both HIST 300 attempts are in the GPA');
-  assert.ok(d.notes.some((n) => n.includes('HIST 300')));
+  assert.ok(d.gpa < 1.67 && d.notes.some((n) => n.about === 'gpa'), 'both HIST 300 attempts are in the GPA');
+  assert.ok(d.notes.some((n) => n.about === 'hours' && n.text.includes('HIST 300')));
 });
 
 test('excluded departments and excluded course numbers', async () => {
