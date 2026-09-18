@@ -31,6 +31,7 @@ export default {
     'Area of Specialization: 4 courses (12 hours) from at least two areas - at least 2 from the chosen area, 1 from a different area, and 1 from any area. ELEC 500-level graduate courses may count with permission.',
     'In the Photonics, Electronics, and Nano-devices list, ELEC 361 or PHYS 311 is one choice, and ELEC 461 or PHYS 412 is one choice.',
     'The required Design Laboratory does not count as an area of specialization course; a second design lab counts only as a general elective.',
+    'At least 8 courses (24 credit hours) must be taken at the 300 level or above.',
     'A course can satisfy only one requirement within the major. PHYS 141 and PHYS 142 credit is not eligible.',
     'Computer Engineering: COMP 140, COMP 182, and COMP 215 are recommended; COMP 222 is a recommended prerequisite for COMP 321, ELEC 421, ELEC 429, and ELEC 450.',
   ],

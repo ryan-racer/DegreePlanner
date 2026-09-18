@@ -16,4 +16,4 @@ jobs:
         run: |
           npm run build
           node tools/gen-index.mjs rice
-          git diff --exit-code -- css/app.css js/schools/rice/programs/index.js js/schools/rice/programs.bundle.js
+          git diff --exit-code -- css/app.css js/schools/rice/programs/index.js js/schools/rice/programs.bundle.js js/schools/rice/variants.bundle.js

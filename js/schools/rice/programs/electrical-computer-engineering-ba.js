@@ -30,6 +30,10 @@ export default {
     'The required Design Laboratory does not count as an area of specialization course; a second design lab counts only as a general elective.',
     'A course can satisfy only one requirement within the major. PHYS 141 and PHYS 142 credit is not eligible.',
   ],
+  constraints: [
+    { type: 'atMost', count: 1, from: ['ELEC 361', 'PHYS 311'], among: ['1'], label: 'ELEC 361 or PHYS 311 counts once as a specialization course' },
+    { type: 'atMost', count: 1, from: ['ELEC 461', 'PHYS 412'], among: ['1'], label: 'ELEC 461 or PHYS 412 counts once as a specialization course' },
+  ],
   requirements: [
     { type: 'group', name: 'Core Requirements', requirements: [
       { type: 'group', name: 'Mathematics and Science Courses', requirements: [
